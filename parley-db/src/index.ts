@@ -29,6 +29,7 @@ export async function withOrg<T>(orgId: string, fn: (tx: Tx) => Promise<T>): Pro
   try {
     await c.query("BEGIN");
     await c.query("SELECT set_config('app.current_org', $1, true)", [orgId]); // true = txn-local
+    if (process.env.PII_KEY) await c.query("SELECT set_config('app.enc_key', $1, true)", [process.env.PII_KEY]); // for pii_encrypt/decrypt
     const out = await fn(c);
     await c.query("COMMIT");
     return out;
@@ -94,6 +95,51 @@ export const repo = {
          ON CONFLICT (org_id, user_id) DO UPDATE SET role=EXCLUDED.role`,
         [p.orgId, p.userId, p.role],
       ),
+  },
+
+  // Billing — subscriptions, plans, usage metering, quota.
+  billing: {
+    ensureSub: (tx: Tx, orgId: string) =>
+      tx.query(`INSERT INTO subscriptions (org_id, plan_id, status) VALUES ($1,'trial','trialing')
+                ON CONFLICT (org_id) DO NOTHING`, [orgId]),
+    getSub: (tx: Tx, orgId: string) =>
+      tx.query<{ plan_id: string; status: string; monthly_call_quota: number | null }>(
+        `SELECT s.plan_id, s.status, p.monthly_call_quota
+         FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.org_id=$1`, [orgId],
+      ).then((r) => r.rows[0]),
+    setPlan: (tx: Tx, p: { orgId: string; planId: string; status: string; stripeCustomerId?: string; stripeSubId?: string; periodEnd?: string }) =>
+      tx.query(
+        `INSERT INTO subscriptions (org_id, plan_id, status, stripe_customer_id, stripe_subscription_id, current_period_end)
+         VALUES ($1,$2,$3,$4,$5,$6)
+         ON CONFLICT (org_id) DO UPDATE SET plan_id=EXCLUDED.plan_id, status=EXCLUDED.status,
+           stripe_customer_id=COALESCE(EXCLUDED.stripe_customer_id, subscriptions.stripe_customer_id),
+           stripe_subscription_id=COALESCE(EXCLUDED.stripe_subscription_id, subscriptions.stripe_subscription_id),
+           current_period_end=EXCLUDED.current_period_end, updated_at=now()`,
+        [p.orgId, p.planId, p.status, p.stripeCustomerId ?? null, p.stripeSubId ?? null, p.periodEnd ?? null],
+      ),
+    meter: (tx: Tx, orgId: string, metric = "call", qty = 1) =>
+      tx.query(`INSERT INTO usage_events (org_id, metric, qty) VALUES ($1,$2,$3)`, [orgId, metric, qty]),
+    usedThisMonth: (tx: Tx, orgId: string, metric = "call") =>
+      tx.query<{ c: number }>(
+        `SELECT COALESCE(sum(qty),0)::int c FROM usage_events
+         WHERE org_id=$1 AND metric=$2 AND created_at >= date_trunc('month', now())`, [orgId, metric],
+      ).then((r) => r.rows[0].c),
+  },
+
+  // CRM — leads with PII encrypted at rest (requires PII_KEY set on the connection).
+  leads: {
+    create: (tx: Tx, p: { orgId: string; name: string; phone: string; phoneHash: string; leadType?: string; address?: string }) =>
+      tx.query<{ id: string }>(
+        `INSERT INTO leads (org_id, name_enc, phone_enc, phone_hash, lead_type, address)
+         VALUES ($1, pii_encrypt($2), pii_encrypt($3), $4, $5, $6) RETURNING id`,
+        [p.orgId, p.name, p.phone, p.phoneHash, p.leadType ?? null, p.address ?? null],
+      ).then((r) => r.rows[0]),
+    getByPhoneHash: (tx: Tx, phoneHash: string) =>
+      tx.query(
+        `SELECT id, pii_decrypt(name_enc) AS name, pii_decrypt(phone_enc) AS phone,
+                lead_type, address, status, est_value, last_contact_at
+         FROM leads WHERE phone_hash=$1 LIMIT 1`, [phoneHash],
+      ).then((r) => r.rows[0] ?? null),
   },
 
   // Analytics
