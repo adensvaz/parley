@@ -14,6 +14,8 @@ import { createTranscriber, type Speaker } from "./stt.js";
 const jc = JSONCodec();
 let nc: NatsConnection;
 const newId = () => `${Date.now().toString(36)}-${Math.round(Math.random() * 1e9).toString(36)}`;
+const BILLING_URL = process.env.BILLING_URL; // entitlement gate before a call
+const CRM_URL = process.env.CRM_URL;         // lead context on call start
 
 function publish<T>(subject: any, orgId: string, traceId: string, data: T) {
   const env: Envelope<T> = { id: newId(), subject, orgId, traceId, occurredAt: new Date().toISOString(), data };
@@ -41,11 +43,28 @@ function handleConnection(ws: WebSocket, ctx: AuthContext) {
     }
   })();
 
+  // Gate on plan quota, surface lead context, then open the call.
+  async function startCall(msg: any) {
+    if (BILLING_URL) {
+      try {
+        const ent: any = await fetch(`${BILLING_URL}/entitlements?orgId=${ctx.orgId}`).then((r) => r.json());
+        if (ent && ent.allowed === false) { send({ type: "blocked", reason: "quota", plan: ent.plan }); return; }
+      } catch { /* fail-open: don't drop calls on a billing outage */ }
+    }
+    if (CRM_URL && msg.phone) {
+      try {
+        const r = await fetch(`${CRM_URL}/lead?orgId=${ctx.orgId}&phone=${encodeURIComponent(msg.phone)}`);
+        if (r.ok) send({ type: "lead", ...(await r.json()) });
+      } catch { /* lead context is best-effort */ }
+    }
+    stt.start();
+    publish<CallStarted>(SUBJECTS.callStarted, ctx.orgId, traceId, { callId, repId: ctx.repId, modeId: msg.modeId });
+  }
+
   ws.on("message", (raw) => {
     let msg: any; try { msg = JSON.parse(raw.toString()); } catch { return; }
     if (msg.type === "start") {
-      stt.start();
-      publish<CallStarted>(SUBJECTS.callStarted, ctx.orgId, traceId, { callId, repId: ctx.repId, modeId: msg.modeId });
+      void startCall(msg);
     } else if (msg.type === "audio" && (msg.speaker === "rep" || msg.speaker === "prospect")) {
       stt.push(msg.speaker as Speaker, msg.pcm16);
     } else if (msg.type === "stop") {
@@ -65,14 +84,17 @@ async function main() {
   const app = Fastify({ logger: true });
   app.get("/health", async () => ({ ok: true, service: "parley-gateway" }));
 
-  const wss = new WebSocketServer({ server: app.server, path: "/rt" });
-  wss.on("connection", async (ws, req) => {
-    const token = new URL(req.url ?? "", "http://x").searchParams.get("token") ?? undefined;
-    const ctx = await authenticate(token);
-    if (!ctx) { ws.close(4401, "unauthorized"); return; }
-    handleConnection(ws, ctx);
-  });
-
+  // Authenticate DURING the upgrade (before completing the handshake) so the message listener
+  // in handleConnection is attached synchronously — otherwise the client's first frame can race
+  // ahead of an async auth and be dropped.
+  const wss = new WebSocketServer({ noServer: true });
   await app.listen({ port: Number(process.env.PORT) || 8080, host: "0.0.0.0" });
+  app.server.on("upgrade", async (req, socket, head) => {
+    if (!req.url || !req.url.startsWith("/rt")) { socket.destroy(); return; }
+    const token = new URL(req.url, "http://x").searchParams.get("token") ?? undefined;
+    const ctx = await authenticate(token);
+    if (!ctx) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
+    wss.handleUpgrade(req, socket, head, (ws) => handleConnection(ws, ctx));
+  });
 }
 main().catch((e) => { console.error(e); process.exit(1); });

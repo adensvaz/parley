@@ -6,7 +6,12 @@ export type Speaker = "rep" | "prospect";
 type OnTranscript = (speaker: Speaker, text: string, isFinal: boolean) => void;
 
 export function createTranscriber(onTranscript: OnTranscript) {
-  const dg = createClient(process.env.DEEPGRAM_API_KEY ?? "");
+  const key = process.env.DEEPGRAM_API_KEY;
+  // No key configured → STT inactive, but the gateway still does auth, billing gate, lead
+  // context, and bus relay. (Crashing the whole gateway on connect is never acceptable.)
+  if (!key) return { start() {}, push(_s: Speaker, _b: string) {}, stop() {} };
+
+  const dg = createClient(key);
   const conns: Partial<Record<Speaker, ReturnType<typeof dg.listen.live>>> = {};
 
   function open(speaker: Speaker) {
