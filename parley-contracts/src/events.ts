@@ -26,6 +26,6 @@ export interface Envelope<T> {
 export interface CallStarted { callId: string; repId: string; leadId?: string; modeId: string }
 export interface CallTranscript { callId: string; speaker: "rep" | "prospect"; text: string; isFinal: boolean }
 export interface CallCard { callId: string; kind: "objection" | "script" | "coach" | "answer" | "signal"; title: string; body: string; urgency: "now" | "soon" | "fyi" }
-export interface CallEnded { callId: string; disposition: string; talkRatioRep: number; appointmentSet: boolean }
+export interface CallEnded { callId: string; repId: string; disposition: string; talkRatioRep: number; appointmentSet: boolean }
 export interface ObjectionFired { callId: string; label: string; severity?: "low" | "med" | "high" }
 export interface UsageMetered { metric: "call" | "minute"; qty: number }
