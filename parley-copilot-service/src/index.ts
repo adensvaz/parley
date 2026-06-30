@@ -9,6 +9,7 @@ import {
 } from "@parley/contracts";
 import { CopilotEngine } from "./engine.js";
 import type { ServerEvent } from "./types.js";
+import { persistStart, persistTranscript, persistCard, persistEnd } from "./persist.js";
 
 const jc = JSONCodec();
 const sessions = new Map<string, { eng: CopilotEngine; orgId: string; traceId: string }>();
@@ -27,6 +28,7 @@ function makeEmit(nc: NatsConnection, callId: string, orgId: string, traceId: st
     if (ev.type !== "card") return; // stage/metrics/postcall persisted elsewhere; cards drive the UI
     const card: CallCard = { callId, kind: ev.kind, title: ev.title, body: ev.body, urgency: ev.urgency };
     publish<CallCard>(nc, SUBJECTS.callCard, orgId, traceId, card);
+    persistCard(orgId, callId, card);
     if (ev.kind === "objection") {
       const fired: ObjectionFired = { callId, label: ev.title.replace(/^Objection:\s*/, "") };
       publish<ObjectionFired>(nc, SUBJECTS.objectionFired, orgId, traceId, fired);
@@ -44,6 +46,7 @@ async function main() {
       const e = jc.decode(m.data) as Envelope<CallStarted>;
       const emit = makeEmit(nc, e.data.callId, e.orgId, e.traceId);
       sessions.set(e.data.callId, { eng: new CopilotEngine(e.data.modeId, undefined, emit), orgId: e.orgId, traceId: e.traceId });
+      persistStart(e.orgId, e.data.callId, e.data.repId, e.data.modeId, e.data.leadId);
     }
   })();
 
@@ -52,6 +55,7 @@ async function main() {
     for await (const m of nc.subscribe(SUBJECTS.callTranscript, q)) {
       const e = jc.decode(m.data) as Envelope<CallTranscript>;
       sessions.get(e.data.callId)?.eng.onUtterance(e.data.speaker, e.data.text, e.data.isFinal);
+      persistTranscript(e.orgId, e.data.callId, e.data.speaker, e.data.text, e.data.isFinal);
     }
   })();
 
@@ -61,6 +65,7 @@ async function main() {
       const e = jc.decode(m.data) as Envelope<CallEnded>;
       const s = sessions.get(e.data.callId);
       if (s) { await s.eng.finish(); sessions.delete(e.data.callId); }
+      persistEnd(e.orgId, e.data.callId, { disposition: e.data.disposition, talkRatioRep: e.data.talkRatioRep, appointmentSet: e.data.appointmentSet });
     }
   })();
 
