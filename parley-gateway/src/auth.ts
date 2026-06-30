@@ -10,9 +10,10 @@ const jwks = ISSUER ? createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.jso
 export async function authenticate(token?: string): Promise<AuthContext | null> {
   if (!token) return null;
 
-  // DEV ONLY: "dev:<orgId>:<repId>" — never honored in production.
+  // DEV ONLY: "dev:<orgUuid>:<repUuid>" — never honored in production. Defaults are valid UUIDs
+  // so downstream persistence (uuid columns) works without a real identity provider.
   if (process.env.NODE_ENV !== "production" && token.startsWith("dev:")) {
-    const [, orgId = "org_dev", repId = "rep_dev"] = token.split(":");
+    const [, orgId = "00000000-0000-0000-0000-0000000000a1", repId = "00000000-0000-0000-0000-0000000000b1"] = token.split(":");
     return { orgId, repId };
   }
 

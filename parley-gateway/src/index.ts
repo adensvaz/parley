@@ -7,6 +7,7 @@ import Fastify from "fastify";
 import { WebSocketServer, type WebSocket } from "ws";
 import { connect, JSONCodec, type NatsConnection } from "nats";
 import { SUBJECTS, type Envelope, type CallStarted, type CallTranscript, type CallEnded, type CallCard } from "@parley/contracts";
+import { randomUUID } from "node:crypto";
 import { authenticate, type AuthContext } from "./auth.js";
 import { createTranscriber, type Speaker } from "./stt.js";
 
@@ -20,7 +21,7 @@ function publish<T>(subject: any, orgId: string, traceId: string, data: T) {
 }
 
 function handleConnection(ws: WebSocket, ctx: AuthContext) {
-  const callId = newId();
+  const callId = randomUUID();   // uuid so it maps directly to the calls table PK
   const traceId = newId();
   const send = (obj: unknown) => ws.readyState === ws.OPEN && ws.send(JSON.stringify(obj));
 
