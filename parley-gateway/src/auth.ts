@@ -6,9 +6,23 @@ export interface AuthContext { orgId: string; repId: string }
 
 const ISSUER = process.env.CLERK_ISSUER; // e.g. https://your-app.clerk.accounts.dev
 const jwks = ISSUER ? createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`)) : null;
+const IDENTITY_URL = process.env.IDENTITY_URL; // when set, identity-service is the source of truth
 
 export async function authenticate(token?: string): Promise<AuthContext | null> {
   if (!token) return null;
+
+  // Preferred path: delegate to identity-service, which verifies the JWT AND resolves the
+  // external Clerk ids to INTERNAL uuids (what RLS + persistence expect).
+  if (IDENTITY_URL) {
+    try {
+      const r = await fetch(`${IDENTITY_URL}/verify`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }),
+      });
+      if (!r.ok) return null;
+      const j = (await r.json()) as { orgId: string; repId: string };
+      return { orgId: j.orgId, repId: j.repId };
+    } catch { return null; }
+  }
 
   // DEV ONLY: "dev:<orgUuid>:<repUuid>" — never honored in production. Defaults are valid UUIDs
   // so downstream persistence (uuid columns) works without a real identity provider.

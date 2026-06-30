@@ -56,7 +56,7 @@ function handleConnection(ws: WebSocket, ctx: AuthContext) {
   ws.on("close", () => {
     stt.stop();
     cardSub.unsubscribe();
-    publish<CallEnded>(SUBJECTS.callEnded, ctx.orgId, traceId, { callId, disposition: "unknown", talkRatioRep: 0, appointmentSet: false });
+    publish<CallEnded>(SUBJECTS.callEnded, ctx.orgId, traceId, { callId, repId: ctx.repId, disposition: "unknown", talkRatioRep: 0, appointmentSet: false });
   });
 }
 
