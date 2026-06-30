@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Parley — Live Demo</title>
+<style>
+  :root{
+    --bg:rgba(14,16,20,.9);--panel:rgba(40,44,52,.9);--line:rgba(255,255,255,.08);
+    --text:#e9edf2;--muted:#8a93a0;--now:#ff5d5d;--accent:#4c8dff;--warn:#ffb020;--ok:#36d399;
+    font-family:-apple-system,"Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(1200px 800px at 70% -10%,#1b2740,#0a0c10 60%);padding:24px;gap:28px;flex-wrap:wrap}
+  /* faux "their screen" behind the overlay */
+  .scene{position:relative;width:560px;height:680px;border-radius:16px;overflow:hidden;
+    background:linear-gradient(160deg,#11151c,#0c0f14);border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  .dialer{padding:22px;color:#5b6273}
+  .dialer h4{color:#6b7585;font-weight:600;margin:0 0 14px;font-size:13px;letter-spacing:.04em}
+  .lead{background:#141922;border:1px solid var(--line);border-radius:12px;padding:16px;color:#c7cfdb}
+  .lead .nm{font-size:18px;font-weight:700;color:#fff}
+  .lead .meta{font-size:12px;color:#7b8595;margin-top:4px}
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
+  .key{background:#141922;border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center;color:#9aa4b2;font-size:18px}
+  .tag{display:inline-block;background:#1e2a44;color:#7fa8ff;font-size:11px;padding:3px 9px;border-radius:999px;margin-top:10px}
+
+  /* the Parley overlay */
+  .overlay{width:380px;height:680px;display:flex;flex-direction:column;background:var(--bg);
+    backdrop-filter:blur(22px);border:1px solid var(--line);border-radius:18px;overflow:hidden;
+    box-shadow:0 30px 80px rgba(0,0,0,.55)}
+  .bar{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .dot{width:9px;height:9px;border-radius:50%;background:#555}
+  .dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}
+  .bar .mode{font-weight:600;font-size:14px;color:#fff}
+  .bar .discreet{margin-left:auto;font-size:11px;color:var(--muted)}
+  .stagebar{display:flex;gap:4px;padding:10px 14px}
+  .stage{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+    padding:4px 7px;border-radius:6px;background:var(--panel);transition:.25s}
+  .stage.active{color:#fff;background:var(--accent)}
+  .coach{padding:0 14px 8px}
+  .talkbar{height:6px;background:var(--panel);border-radius:3px;overflow:hidden}
+  .talkbar .fill{height:100%;width:30%;background:var(--accent);transition:width .5s,background .3s}
+  .talkbar .fill.warn{background:var(--warn)}
+  .coach small{color:var(--muted);font-size:11px}
+  .cards{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:9px}
+  .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:11px;padding:11px 13px;animation:pop .3s ease}
+  .card.objection{border-left-color:var(--now)}
+  .card.coach{border-left-color:var(--warn)}
+  .card.answer{border-left-color:var(--accent)}
+  .card-h{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px}
+  .card p{margin:0;font-size:14px;line-height:1.45}
+  .badge{background:var(--now);color:#fff;font-size:9px;font-weight:700;padding:1px 7px;border-radius:999px}
+  .transcript{border-top:1px solid var(--line);max-height:120px;overflow-y:auto;padding:10px 14px;font-size:12px}
+  .t-line{margin:3px 0}.t-rep{color:#9ec3ff}.t-pro{color:#cdd5e0}
+  .postcall{border-top:1px solid var(--line);padding:14px;background:var(--panel);font-size:13px}
+  .postcall h3{margin:0 0 6px;font-size:14px}.postcall .row{margin:5px 0}.postcall b{color:#fff}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:8px 12px;font-weight:600;cursor:pointer;margin-top:8px}
+  .controls{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px}
+  .controls button{background:#1a1f2a;color:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 18px;cursor:pointer;font-weight:600}
+  .controls .go{background:var(--ok);color:#06281c;border:none}
+  @keyframes pop{from{transform:scale(.96);opacity:.3}to{transform:scale(1);opacity:1}}
+  .label{position:absolute;top:14px;left:16px;font-size:11px;color:#566273}
+  .hint{position:absolute;bottom:14px;left:0;width:100%;text-align:center;font-size:11px;color:#566273}
+</style>
+</head>
+<body>
+  <div class="scene">
+    <div class="dialer">
+      <h4>📞 MOJO POWER DIALER · the rep's screen</h4>
+      <div class="lead">
+        <div class="nm">Linda Pearson</div>
+        <div class="meta">312 Maple Ave · Expired listing · 47 days on market · est. $485,000</div>
+        <span class="tag">EXPIRED · called 3x before</span>
+      </div>
+      <div class="keypad">
+        <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+        <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+        <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+      </div>
+    </div>
+    <div class="hint">Parley floats on top — invisible to anyone but the rep →</div>
+  </div>
+
+  <div class="overlay">
+    <div class="bar">
+      <span class="dot" id="dot"></span>
+      <span class="mode">🎯 Parley · Expired Listings</span>
+      <span class="discreet">👁️‍🗨️ discreet</span>
+    </div>
+    <div class="stagebar" id="stages"></div>
+    <div class="coach">
+      <div class="talkbar"><div class="fill" id="fill"></div></div>
+      <small id="coachtxt">Ready</small>
+    </div>
+    <div class="cards" id="cards">
+      <div style="color:var(--muted);text-align:center;padding:50px 16px;font-size:13px">
+        Hit <b style="color:#fff">▶ Start the call</b> below to watch Parley work live.
+      </div>
+    </div>
+    <div class="transcript" id="transcript"></div>
+    <div id="post"></div>
+  </div>
+
+  <div class="controls">
+    <button class="go" id="start">▶ Start the call</button>
+    <button id="reset">Reset</button>
+  </div>
+
+<script>
+const STAGES=["intro","discovery","value","objection","close","wrap"];
+const stagesEl=document.getElementById("stages");
+STAGES.forEach(s=>{const e=document.createElement("span");e.className="stage";e.dataset.s=s;e.textContent=s;stagesEl.appendChild(e)});
+const cards=document.getElementById("cards"),tr=document.getElementById("transcript"),
+  fill=document.getElementById("fill"),coachtxt=document.getElementById("coachtxt"),
+  dot=document.getElementById("dot"),post=document.getElementById("post");
+
+function setStage(s){document.querySelectorAll(".stage").forEach(e=>e.classList.toggle("active",e.dataset.s===s))}
+function line(sp,txt){const d=document.createElement("div");d.className="t-line "+(sp==="rep"?"t-rep":"t-pro");
+  d.textContent=(sp==="rep"?"You: ":"Linda: ")+txt;tr.appendChild(d);tr.scrollTop=tr.scrollHeight}
+function setTalk(p,warn){fill.style.width=p+"%";fill.classList.toggle("warn",warn);
+  coachtxt.textContent="You "+p+"% · Them "+(100-p)+"% "+(warn?"· slow down, ask a question":"· good balance")}
+function card(kind,title,body,now){
+  if(cards.querySelector("div[style]"))cards.innerHTML="";
+  const c=document.createElement("div");c.className="card "+kind;
+  const icon={objection:"🛡️",script:"🧭",coach:"🎯",answer:"💬"}[kind];
+  c.innerHTML=`<div class="card-h"><span>${icon} ${title}</span>${now?'<span class="badge">NOW</span>':''}</div><p>${body}</p>`;
+  cards.prepend(c);
+}
+
+// scripted live call — each step fires on a timer to simulate realtime
+const script=[
+  {t:400, fn:()=>{dot.classList.add("on");setStage("intro");card("script","Opener","“Hi Linda — I saw your home on Maple came off the market. Quick question: are you still hoping to get it sold?”",true)}},
+  {t:2600, fn:()=>{line("rep","Hi Linda, I saw your home on Maple came off the market — are you still hoping to get it sold?");setTalk(55)}},
+  {t:4800, fn:()=>{line("pro","Ugh, who is this? How did you even get my number?")}},
+  {t:5200, fn:()=>{card("objection","Objection: How'd you get my number","“Fair question — your listing came up as recently expired. I’m not a robocall, it’s just me, and I’ll be quick and respectful of your time.”",true)}},
+  {t:8000, fn:()=>{line("rep","Totally fair — your listing came up as recently expired. It's just me, I'll be quick.");setStage("discovery");setTalk(48)}},
+  {t:9200, fn:()=>{card("script","Discovery","Diagnose: “What do you think kept it from selling?” — then let her talk.",false)}},
+  {t:11200,fn:()=>{line("rep","Can I ask — what do you think kept it from selling?")}},
+  {t:13400,fn:()=>{line("pro","Honestly? Our agent did nothing. And every agent says the exact same thing.")}},
+  {t:13800,fn:()=>{card("objection","Objection: All agents are the same","“You’re right to be skeptical — you just lived through it. That’s exactly why I won’t pitch you on the phone. Let me earn 15 minutes and show you specifically what went wrong.”",true)}},
+  {t:17000,fn:()=>{line("rep","You're right to be skeptical, you just lived it. That's why I won't pitch you on the phone — let me earn 15 minutes and show you what actually went wrong.");setStage("value");setTalk(72,true)}},
+  {t:18000,fn:()=>{card("coach","You're talking too much","Stop. Ask for the appointment now.",true)}},
+  {t:20200,fn:()=>{card("answer","Say this",'“I’ve got two slots — tomorrow at 5, or Thursday morning. Which is easier?”',true);setStage("close")}},
+  {t:22400,fn:()=>{line("rep","I've got two slots — tomorrow at 5, or Thursday morning. Which works?");setTalk(50)}},
+  {t:24600,fn:()=>{line("pro","...Thursday morning could work, I guess.")}},
+  {t:25200,fn:()=>{setStage("wrap");card("script","Lock it in","Confirm time + address, set expectations, thank her.",false);setTalk(45)}},
+  {t:27000,fn:()=>{line("rep","Perfect — Thursday 9am, I'll come to you. Thanks Linda, talk soon.")}},
+  {t:29000,fn:()=>{dot.classList.remove("on");showPost()}},
+];
+
+function showPost(){
+  post.innerHTML=`<div class="postcall">
+    <h3>📋 Call wrap-up · auto-logged</h3>
+    <div class="row"><b>Why it didn't sell:</b> Felt agent was inactive; skeptical of agents.</div>
+    <div class="row"><b>Motivation:</b> Still wants to sell.</div>
+    <div class="row"><b>Disposition:</b> ✅ Appointment set</div>
+    <div class="row"><b>Next step:</b> Listing consult — Thu 9:00am at 312 Maple Ave.</div>
+    <div class="row"><b>Follow-up SMS:</b> “Hi Linda, confirming Thursday 9am at your place. I'll bring the 3 things I'd change. — see you then!”</div>
+    <button class="btn">Send SMS & log to CRM</button>
+  </div>`;
+}
+
+let timers=[];
+document.getElementById("start").onclick=()=>{reset();script.forEach(s=>timers.push(setTimeout(s.fn,s.t)))};
+function reset(){timers.forEach(clearTimeout);timers=[];cards.innerHTML='<div style="color:var(--muted);text-align:center;padding:50px 16px;font-size:13px">Hit <b style="color:#fff">▶ Start the call</b> below.</div>';tr.innerHTML="";post.innerHTML="";setStage("intro");setTalk(30);coachtxt.textContent="Ready";dot.classList.remove("on")}
+document.getElementById("reset").onclick=reset;
+reset();
+</script>
+</body>
+</html>

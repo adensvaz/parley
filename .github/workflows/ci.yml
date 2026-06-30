@@ -1,0 +1,28 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request: {}
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - working-directory: parley-contracts
+        run: npm install --no-audit --no-fund && npx tsc --noEmit
+  db-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_PASSWORD: pw, POSTGRES_DB: parley }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          for f in $(ls parley-infra/db/migrations/*.sql | sort); do
+            echo "applying $f"; PGPASSWORD=pw psql -h localhost -U postgres -d parley -v ON_ERROR_STOP=1 -f "$f"
+          done

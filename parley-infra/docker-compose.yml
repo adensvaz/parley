@@ -1,0 +1,53 @@
+# Local dev orchestration for the whole platform. Prod = Kubernetes/Helm (see ./k8s).
+name: parley
+
+x-svc: &svc
+  restart: unless-stopped
+  environment:
+    NATS_URL: nats://nats:4222
+    REDIS_URL: redis://redis:6379
+    DATABASE_URL: postgres://parley_app@pgbouncer:6432/parley
+  depends_on: [nats, redis, pgbouncer]
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pw}
+      POSTGRES_DB: parley
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro   # auto-applies on first boot
+    healthcheck: { test: ["CMD-SHELL","pg_isready -U postgres"], interval: 5s, retries: 10 }
+    ports: ["5432:5432"]
+
+  pgbouncer:                                              # transaction pooling in front of PG
+    image: edoburu/pgbouncer:latest
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-pw}@postgres:5432/parley
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "1000"
+      DEFAULT_POOL_SIZE: "25"
+    depends_on: { postgres: { condition: service_healthy } }
+    ports: ["6432:6432"]
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server","--save","","--appendonly","no"]   # cache/rate-limit only
+    ports: ["6379:6379"]
+
+  nats:
+    image: nats:2-alpine
+    command: ["-js"]                                      # JetStream (durable, at-least-once)
+    ports: ["4222:4222"]
+
+  gateway:           { <<: *svc, build: ../parley-gateway,            ports: ["8080:8080"] }
+  copilot:           { <<: *svc, build: ../parley-copilot-service }
+  identity:          { <<: *svc, build: ../parley-identity-service,   ports: ["8081:8081"] }
+  crm:               { <<: *svc, build: ../parley-crm-service,        ports: ["8082:8082"] }
+  compliance:        { <<: *svc, build: ../parley-compliance-service, ports: ["8083:8083"] }
+  billing:           { <<: *svc, build: ../parley-billing-service,    ports: ["8084:8084"] }
+  analytics:         { <<: *svc, build: ../parley-analytics-service,  ports: ["8085:8085"] }
+
+volumes:
+  pgdata:
