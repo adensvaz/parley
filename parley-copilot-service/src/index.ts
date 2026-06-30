@@ -1,35 +1,72 @@
-// parley-copilot-service — stateless workers. Consume the live transcript, run the proven copilot
-// engine (objection match + stage machine + coaching + LLM advisor), publish cards back to the bus.
-// The engine validated in parley-desktop (server/copilot.ts, 116 passing tests) MOVES here as src/engine.ts.
+// parley-copilot-service — stateless real-time advisor workers.
+// Consume the live transcript off NATS, run the PROVEN copilot engine per call, and publish
+// cards + objections back onto the bus. Horizontally scalable via the "copilot" queue group.
+import Fastify from "fastify";
 import { connect, JSONCodec, type NatsConnection } from "nats";
-import { SUBJECTS, type Envelope, type CallTranscript, type CallCard } from "@parley/contracts";
-// import { CopilotEngine } from "./engine.js"; // relocated from parley-desktop/server/copilot.ts
+import {
+  SUBJECTS, type Envelope, type CallStarted, type CallTranscript, type CallEnded,
+  type CallCard, type ObjectionFired,
+} from "@parley/contracts";
+import { CopilotEngine } from "./engine.js";
+import type { ServerEvent } from "./types.js";
 
 const jc = JSONCodec();
-const engines = new Map<string, any /* CopilotEngine */>();
+const sessions = new Map<string, { eng: CopilotEngine; orgId: string; traceId: string }>();
+
+function publish<T>(nc: NatsConnection, subject: any, orgId: string, traceId: string, data: T) {
+  const env: Envelope<T> = {
+    id: `${Date.now().toString(36)}-${Math.round(Math.random() * 1e9).toString(36)}`,
+    subject, orgId, traceId, occurredAt: new Date().toISOString(), data,
+  };
+  nc.publish(subject, jc.encode(env));
+}
+
+// Translate the engine's rich ServerEvent stream into cross-service contract events.
+function makeEmit(nc: NatsConnection, callId: string, orgId: string, traceId: string) {
+  return (ev: ServerEvent) => {
+    if (ev.type !== "card") return; // stage/metrics/postcall persisted elsewhere; cards drive the UI
+    const card: CallCard = { callId, kind: ev.kind, title: ev.title, body: ev.body, urgency: ev.urgency };
+    publish<CallCard>(nc, SUBJECTS.callCard, orgId, traceId, card);
+    if (ev.kind === "objection") {
+      const fired: ObjectionFired = { callId, label: ev.title.replace(/^Objection:\s*/, "") };
+      publish<ObjectionFired>(nc, SUBJECTS.objectionFired, orgId, traceId, fired);
+    }
+  };
+}
 
 async function main() {
-  const nc: NatsConnection = await connect({ servers: process.env.NATS_URL || "nats://localhost:4222" });
+  const nc = await connect({ servers: process.env.NATS_URL || "nats://localhost:4222" });
+  const q = { queue: "copilot" };
 
-  // Durable queue group → horizontal scaling: add replicas, NATS load-balances transcript work.
-  const sub = nc.subscribe(SUBJECTS.callTranscript, { queue: "copilot" });
-  for await (const m of sub) {
-    const e = jc.decode(m.data) as Envelope<CallTranscript>;
-    const { callId, speaker, text, isFinal } = e.data;
-
-    // One engine instance per active call; emit() publishes cards back onto the bus.
-    let eng = engines.get(callId);
-    if (!eng) {
-      const emit = (card: CallCard) =>
-        nc.publish(SUBJECTS.callCard, jc.encode(<Envelope<CallCard>>{
-          id: `${callId}-${Date.now()}`, subject: SUBJECTS.callCard, orgId: e.orgId,
-          traceId: e.traceId, occurredAt: new Date().toISOString(), data: { ...card, callId },
-        }));
-      // eng = new CopilotEngine(modeId, undefined, emit);  // wired once engine.ts lands
-      eng = { onUtterance: (_s: string, _t: string, _f: boolean) => emit({ callId, kind: "coach", title: "stub", body: "engine.ts pending", urgency: "fyi" }) };
-      engines.set(callId, eng);
+  // 1) call.started → spin up an engine for the call's mode
+  (async () => {
+    for await (const m of nc.subscribe(SUBJECTS.callStarted, q)) {
+      const e = jc.decode(m.data) as Envelope<CallStarted>;
+      const emit = makeEmit(nc, e.data.callId, e.orgId, e.traceId);
+      sessions.set(e.data.callId, { eng: new CopilotEngine(e.data.modeId, undefined, emit), orgId: e.orgId, traceId: e.traceId });
     }
-    eng.onUtterance(speaker, text, isFinal);
-  }
+  })();
+
+  // 2) call.transcript → feed the engine (objection/stage/coaching fire synchronously)
+  (async () => {
+    for await (const m of nc.subscribe(SUBJECTS.callTranscript, q)) {
+      const e = jc.decode(m.data) as Envelope<CallTranscript>;
+      sessions.get(e.data.callId)?.eng.onUtterance(e.data.speaker, e.data.text, e.data.isFinal);
+    }
+  })();
+
+  // 3) call.ended → finalize (post-call summary) and release the engine
+  (async () => {
+    for await (const m of nc.subscribe(SUBJECTS.callEnded, q)) {
+      const e = jc.decode(m.data) as Envelope<CallEnded>;
+      const s = sessions.get(e.data.callId);
+      if (s) { await s.eng.finish(); sessions.delete(e.data.callId); }
+    }
+  })();
+
+  const app = Fastify();
+  app.get("/health", async () => ({ ok: true, service: "parley-copilot-service", activeCalls: sessions.size }));
+  await app.listen({ port: Number(process.env.PORT) || 8086, host: "0.0.0.0" });
+  app.log.info("copilot-service consuming transcript stream");
 }
 main().catch((e) => { console.error(e); process.exit(1); });
