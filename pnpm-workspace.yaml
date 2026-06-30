@@ -1,4 +1,5 @@
 packages:
+  - "parley-db"
   - "parley-contracts"
   - "parley-*-service"
   - "parley-gateway"
