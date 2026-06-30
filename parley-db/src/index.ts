@@ -37,10 +37,11 @@ export async function withOrg<T>(orgId: string, fn: (tx: Tx) => Promise<T>): Pro
 // Repositories — parameterized queries only (no string interpolation).
 export const repo = {
   calls: {
-    create: (tx: Tx, p: { orgId: string; repId: string; modeId: string; leadId?: string }) =>
+    create: (tx: Tx, p: { id?: string; orgId: string; repId: string; modeId: string; leadId?: string }) =>
       tx.query<{ id: string }>(
-        `INSERT INTO calls (org_id, rep_id, mode_id, lead_id) VALUES ($1,$2,$3,$4) RETURNING id`,
-        [p.orgId, p.repId, p.modeId, p.leadId ?? null],
+        `INSERT INTO calls (id, org_id, rep_id, mode_id, lead_id)
+         VALUES (COALESCE($1::uuid, gen_random_uuid()), $2,$3,$4,$5) RETURNING id`,
+        [p.id ?? null, p.orgId, p.repId, p.modeId, p.leadId ?? null],
       ).then((r) => r.rows[0]),
     setOutcome: (tx: Tx, callId: string, p: { disposition: string; talkRatioRep: number; appointmentSet: boolean }) =>
       tx.query(
@@ -68,6 +69,12 @@ export const repo = {
     isListed: (tx: Tx, orgId: string, phoneHash: string) =>
       tx.query(`SELECT 1 FROM dnc_entries WHERE org_id=$1 AND phone_hash=$2 LIMIT 1`, [orgId, phoneHash])
         .then((r) => (r.rowCount ?? 0) > 0),
+    add: (tx: Tx, orgId: string, phoneHash: string, scope = "org") =>
+      tx.query(
+        `INSERT INTO dnc_entries (org_id, phone_hash, scope) VALUES ($1,$2,$3)
+         ON CONFLICT (org_id, phone_hash) DO NOTHING`,
+        [orgId, phoneHash, scope],
+      ),
   },
 };
 
