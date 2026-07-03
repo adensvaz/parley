@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Parley — Product</title>
+<style>
+  :root{
+    --bg:#0b0d11;--bg2:#0f1218;--panel:#161a22;--panel2:#1c2230;--line:rgba(255,255,255,.08);
+    --text:#eef1f6;--muted:#8b95a6;--accent:#5b8cff;--accent2:#7c5cff;--ok:#37d39b;--now:#ff5d6c;--warn:#ffb23e;
+    --glow:0 0 40px rgba(91,140,255,.25);
+    font-family:-apple-system,"Inter",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(1200px 700px at 75% -10%,#18213b,#0b0d11 55%);color:var(--text);min-height:100vh;overflow-x:hidden}
+  .app{max-width:1120px;margin:0 auto;padding:24px;min-height:100vh}
+  .screen{display:none;animation:fade .4s ease}
+  .screen.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  button{font-family:inherit;cursor:pointer;border:none}
+  .btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:600;font-size:15px;padding:13px 24px;border-radius:12px;transition:.15s;box-shadow:var(--glow)}
+  .btn:hover{transform:translateY(-1px);filter:brightness(1.08)}
+  .btn:active{transform:translateY(0) scale(.99)}
+  .btn.ghost{background:none;border:1px solid var(--line);box-shadow:none;color:var(--text)}
+  .btn.ghost:hover{background:var(--panel2)}
+  .btn.sm{padding:8px 14px;font-size:13px;border-radius:9px}
+  .logo{font-weight:800;font-size:20px;letter-spacing:-.5px}
+  .logo b{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:12px;padding:5px 11px;border-radius:999px}
+
+  /* ONBOARDING */
+  .hero{min-height:82vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .hero h1{font-size:52px;line-height:1.05;letter-spacing:-1.5px;max-width:760px;margin-bottom:18px}
+  .hero h1 span{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--muted);font-size:19px;max-width:540px;margin-bottom:32px;line-height:1.5}
+  .dots{display:flex;gap:8px;margin-top:34px}
+  .dots span{width:8px;height:8px;border-radius:50%;background:var(--panel2);transition:.3s}
+  .dots span.on{background:var(--accent);width:22px;border-radius:4px}
+  .slidewrap{max-width:640px;margin:0 auto;text-align:center}
+  .slide-ic{width:84px;height:84px;border-radius:22px;background:linear-gradient(135deg,var(--panel2),var(--panel));border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto 26px;box-shadow:var(--glow)}
+  .slide h2{font-size:34px;letter-spacing:-1px;margin-bottom:14px}
+  .slide p{color:var(--muted);font-size:17px;line-height:1.6;margin-bottom:8px}
+  .feat-mini{display:flex;gap:12px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+  .feat-mini div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--muted)}
+  .feat-mini b{color:var(--text);display:block;font-size:14px;margin-bottom:2px}
+  .navrow{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:38px}
+  .skip{position:fixed;top:26px;right:30px;color:var(--muted);background:none;font-size:14px}
+  .skip:hover{color:var(--text)}
+
+  /* MODE PICKER */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:22px}
+  .mode{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;transition:.15s;cursor:pointer;position:relative}
+  .mode:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .mode.sel{border-color:var(--accent);box-shadow:var(--glow)}
+  .mode .mic{font-size:26px;margin-bottom:12px}
+  .mode h3{font-size:16px;margin-bottom:5px}
+  .mode small{color:var(--muted);font-size:12.5px;line-height:1.45;display:block}
+  .mode .tag{position:absolute;top:14px;right:14px;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);background:rgba(91,140,255,.12);padding:3px 8px;border-radius:6px}
+  .mode .check{position:absolute;top:12px;right:12px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;display:none;align-items:center;justify-content:center;font-size:13px}
+  .mode.sel .check{display:flex}.mode.sel .tag{display:none}
+
+  /* CALL */
+  .callgrid{display:grid;grid-template-columns:1fr 380px;gap:18px;margin-top:18px}
+  .stage{background:var(--bg2);border:1px solid var(--line);border-radius:18px;overflow:hidden;min-height:560px;display:flex;flex-direction:column}
+  .callhead{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line)}
+  .avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#2a3450,#1a2030);display:flex;align-items:center;justify-content:center;font-weight:700;color:#9db4ff}
+  .callhead .who b{font-size:15px}.callhead .who small{color:var(--muted);font-size:12px;display:block}
+  .timer{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--muted);font-size:14px}
+  .rec{width:8px;height:8px;border-radius:50%;background:var(--now);animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .stagebar{display:flex;gap:5px;padding:12px 18px}
+  .stg{flex:1;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:6px 4px;border-radius:7px;background:var(--panel);transition:.3s}
+  .stg.on{color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+  .stg.done{color:var(--ok)}
+  .transcript{flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:10px}
+  .t{max-width:82%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.45;animation:fade .3s}
+  .t.prospect{background:var(--panel);align-self:flex-start;border-bottom-left-radius:4px}
+  .t.rep{background:linear-gradient(135deg,rgba(91,140,255,.18),rgba(124,92,255,.18));align-self:flex-end;border-bottom-right-radius:4px;color:#dde6ff}
+  .t .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:3px}
+  .callfoot{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
+  .end{background:var(--now);color:#fff;font-weight:600;padding:11px 20px;border-radius:11px}
+  .micbtn{width:44px;height:44px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text)}
+
+  /* COPILOT RAIL */
+  .rail{background:var(--bg2);border:1px solid var(--line);border-radius:18px;display:flex;flex-direction:column;min-height:560px}
+  .railhead{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  .railhead .logo{font-size:15px}
+  .coach{padding:12px 16px;border-bottom:1px solid var(--line)}
+  .meter{height:7px;background:var(--panel2);border-radius:4px;overflow:hidden;display:flex}
+  .meter i{display:block;height:100%;background:var(--accent);transition:width .5s}
+  .meter i.them{background:#39445c}
+  .coach small{color:var(--muted);font-size:11.5px;display:block;margin-top:6px}
+  .cards{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:11px}
+  .card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:12px;padding:12px 14px;animation:pop .3s ease}
+  @keyframes pop{from{transform:scale(.96) translateY(6px);opacity:0}to{transform:none;opacity:1}}
+  .card.objection{border-left-color:var(--now)}.card.coach2{border-left-color:var(--warn)}.card.answer{border-left-color:var(--accent2)}
+  .card .h{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--muted);margin-bottom:5px}
+  .card .h b{color:var(--text)}
+  .card p{font-size:14px;line-height:1.5}
+  .badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--now);color:#fff}
+  .badge.spec{background:rgba(55,211,155,.15);color:var(--ok)}
+  .badge.ban{background:rgba(124,92,255,.15);color:#b9a6ff}
+  .empty{color:var(--muted);text-align:center;padding:60px 20px;font-size:13px}
+  .latency{font-size:10px;color:var(--ok);margin-top:6px}
+
+  /* POST CALL */
+  .post{max-width:720px;margin:20px auto}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center}
+  .kpi .n{font-size:30px;font-weight:700}
+  .kpi .n.good{color:var(--ok)}
+  .kpi small{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  .sumcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:14px}
+  .sumcard h3{font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .sumrow{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .sumrow:last-child{border:none}.sumrow b{min-width:130px;color:var(--muted);font-weight:500}
+  .fu{background:var(--panel2);border-radius:12px;padding:14px;margin-top:10px;font-size:14px;line-height:1.5;color:#cdd6e6}
+  section h1{font-size:28px;letter-spacing:-.8px}
+  section .sub{color:var(--muted);font-size:15px;margin-top:4px}
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--panel2);border:1px solid var(--line);color:var(--text);padding:12px 20px;border-radius:12px;font-size:14px;transition:.3s;box-shadow:var(--glow);z-index:50}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ ONBOARDING ============ -->
+  <section class="screen active" id="s-onboard">
+    <button class="skip" onclick="go('mode')">Skip intro →</button>
+    <div class="hero" id="ob-hero">
+      <div class="slidewrap" id="ob-slide"></div>
+      <div class="dots" id="ob-dots"></div>
+      <div class="navrow">
+        <button class="btn ghost sm" id="ob-back" onclick="obNav(-1)" style="visibility:hidden">Back</button>
+        <button class="btn" id="ob-next" onclick="obNav(1)">Continue</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MODE PICKER ============ -->
+  <section class="screen" id="s-mode">
+    <div class="topbar"><div class="logo"><b>Parley</b></div><span class="pill">👋 Aden</span></div>
+    <h1>What are you calling today?</h1>
+    <div class="sub">Pick a playbook. Parley loads the objections, script, and compliance profile for it.</div>
+    <div class="grid" id="modeGrid"></div>
+    <div style="margin-top:24px;display:flex;justify-content:flex-end">
+      <button class="btn" id="startBtn" onclick="startCall()" disabled style="opacity:.5">Go live →</button>
+    </div>
+  </section>
+
+  <!-- ============ LIVE CALL ============ -->
+  <section class="screen" id="s-call">
+    <div class="topbar">
+      <div class="logo" style="font-size:16px"><b>Parley</b></div>
+      <span class="pill" id="modePill">🏠 Expired Listings</span>
+    </div>
+    <div class="callgrid">
+      <div class="stage">
+        <div class="callhead">
+          <div class="avatar">LP</div>
+          <div class="who"><b>Linda Pearson</b><small>312 Maple Ave · Expired · called 3× before</small></div>
+          <span class="rec"></span><span class="timer" id="timer">00:00</span>
+        </div>
+        <div class="stagebar" id="stagebar"></div>
+        <div class="transcript" id="transcript"></div>
+        <div class="callfoot">
+          <button class="micbtn" title="Mute">🎙️</button>
+          <button class="micbtn" title="Discreet — hidden from screen-share" id="discreetBtn" onclick="toggleDiscreet()">👁️‍🗨️</button>
+          <div style="flex:1"></div>
+          <button class="end" onclick="endCall()">End call</button>
+        </div>
+      </div>
+      <div class="rail">
+        <div class="railhead"><span class="logo">🎯 <b>Parley</b></span><span class="pill" style="margin-left:auto;padding:3px 9px" id="live">● live</span></div>
+        <div class="coach">
+          <div class="meter"><i id="mYou" style="width:30%"></i><i class="them" id="mThem" style="width:70%;background:#39445c"></i></div>
+          <small id="coachTxt">You 30% · Them 70% · listening well</small>
+        </div>
+        <div class="cards" id="cards"><div class="empty">The call is starting…<br>Parley is pre-warming likely objections.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ POST CALL ============ -->
+  <section class="screen" id="s-post">
+    <div class="post">
+      <div class="topbar"><div class="logo" style="font-size:16px"><b>Parley</b></div><span class="pill">Call wrap-up</span></div>
+      <h1>Nice — appointment set. 🎉</h1>
+      <div class="sub">Auto-scored, logged, and your follow-up is drafted.</div>
+      <div class="kpis">
+        <div class="kpi"><div class="n good" id="pScore">100</div><small>Call score</small></div>
+        <div class="kpi"><div class="n" id="pObj">2</div><small>Objections handled</small></div>
+        <div class="kpi"><div class="n" id="pTalk">48%</div><small>Your talk time</small></div>
+        <div class="kpi"><div class="n good">✓</div><small>Appt set</small></div>
+      </div>
+      <div class="sumcard">
+        <h3>📋 Summary</h3>
+        <div class="sumrow"><b>Why it didn't sell</b><span>Felt prior agent was inactive; skeptical of agents.</span></div>
+        <div class="sumrow"><b>Motivation</b><span>Still wants to sell; open to a fresh plan.</span></div>
+        <div class="sumrow"><b>Objections</b><span>"How'd you get my number", "All agents are the same"</span></div>
+        <div class="sumrow"><b>Next step</b><span>Listing consult — Thursday 9:00 AM at 312 Maple Ave.</span></div>
+      </div>
+      <div class="sumcard">
+        <h3>✉️ Follow-up (ready to send)</h3>
+        <div class="fu" id="fuText">Hi Linda — great talking just now. Confirming Thursday 9 AM at your place; I'll bring the 3 things I'd change from last time. Talk soon — Aden.</div>
+        <div style="display:flex;gap:10px;margin-top:12px">
+          <button class="btn sm" onclick="toast('Sent & logged to FollowUpBoss ✓')">Send &amp; log to CRM</button>
+          <button class="btn ghost sm" onclick="toast('Booked in your calendar ✓')">Add to calendar</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:20px">
+        <button class="btn" onclick="go('mode');reset()">Next call →</button>
+        <button class="btn ghost" onclick="go('mode');reset()">Back to modes</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- navigation ----------
+function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('s-'+id).classList.add('active');window.scrollTo(0,0);}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
+
+// ---------- onboarding slides ----------
+const SLIDES=[
+  {ic:'🎯',h:'Meet Parley',p:'The AI copilot that whispers the perfect line on every cold call — so you never freeze, never lose the appointment, and never wing it again.',mini:[]},
+  {ic:'🛡️',h:'It hears the objection before you panic',p:'Parley listens to both sides of the call and hands you the proven rebuttal the instant the prospect pushes back.',mini:[['Speculative','Rebuttals pre-warmed → ~100ms, not 700ms'],['Self-optimizing','Learns the best line per market, live']]},
+  {ic:'🌐',h:'Built for how you actually sell',p:'Expired, FSBO, circle prospecting, SDR — each mode loads its own objections, script, and compliance profile. English & Arabic.',mini:[['Compliant','DNC scrub + consent, built in'],['Discreet','Stays out of your screen-share']]},
+  {ic:'📈',h:'Every call makes you better',p:'Auto-scored, auto-logged to your CRM, follow-up drafted. Your manager sees the whole floor light up.',mini:[]},
+];
+let ob=0;
+function renderSlide(){
+  const s=SLIDES[ob];
+  document.getElementById('ob-slide').innerHTML=
+    `<div class="slide"><div class="slide-ic">${s.ic}</div><h2>${s.h}</h2><p>${s.p}</p>`+
+    (s.mini.length?`<div class="feat-mini">${s.mini.map(m=>`<div><b>${m[0]}</b>${m[1]}</div>`).join('')}</div>`:'')+`</div>`;
+  document.getElementById('ob-dots').innerHTML=SLIDES.map((_,i)=>`<span class="${i===ob?'on':''}"></span>`).join('');
+  document.getElementById('ob-back').style.visibility=ob===0?'hidden':'visible';
+  document.getElementById('ob-next').textContent=ob===SLIDES.length-1?'Get started →':'Continue';
+}
+function obNav(d){ob+=d;if(ob<0)ob=0;if(ob>=SLIDES.length){go('mode');return;}renderSlide();}
+renderSlide();
+
+// ---------- mode picker ----------
+const MODES=[
+  {id:'expired',ic:'🏠',n:'Expired Listings',d:'Failed to sell, frustrated. Empathy → diagnose → relist.',tag:'Popular'},
+  {id:'fsbo',ic:'🏷️',n:'FSBO',d:'For-sale-by-owner. Sell net proceeds, not price.'},
+  {id:'circle',ic:'📍',n:'Circle Prospecting',d:'Just-listed / just-sold neighborhood calls.'},
+  {id:'buyer',ic:'👤',n:'Buyer Follow-up',d:'Internet leads. Speed-to-lead, qualify, book.'},
+  {id:'investor',ic:'📈',n:'Investor / Wholesale',d:'As-is, cash, motivation & numbers.'},
+  {id:'sdr',ic:'📞',n:'B2B SDR',d:'Pattern-interrupt opener, book the meeting.'},
+];
+let selMode='expired';
+function renderModes(){
+  document.getElementById('modeGrid').innerHTML=MODES.map(m=>
+    `<div class="mode ${m.id===selMode?'sel':''}" onclick="pickMode('${m.id}')">
+       ${m.tag?`<span class="tag">${m.tag}</span>`:''}<span class="check">✓</span>
+       <div class="mic">${m.ic}</div><h3>${m.n}</h3><small>${m.d}</small></div>`).join('');
+  const b=document.getElementById('startBtn');b.disabled=!selMode;b.style.opacity=selMode?1:.5;
+}
+function pickMode(id){selMode=id;renderModes();}
+renderModes();
+
+// ---------- the live call (scripted, shows the leaps) ----------
+let timer=0,timerInt=null,discreet=true;
+const STAGES=['intro','discovery','value','objection','close','wrap'];
+function setStages(cur){
+  const i=STAGES.indexOf(cur);
+  document.getElementById('stagebar').innerHTML=STAGES.map((s,j)=>
+    `<div class="stg ${j<i?'done':''} ${j===i?'on':''}">${s}</div>`).join('');
+}
+function line(who,txt){const d=document.createElement('div');d.className='t '+who;
+  d.innerHTML=`<div class="lbl">${who==='rep'?'You':'Linda'}</div>${txt}`;
+  const tr=document.getElementById('transcript');tr.appendChild(d);tr.scrollTop=tr.scrollHeight;}
+function talk(you){document.getElementById('mYou').style.width=you+'%';document.getElementById('mThem').style.width=(100-you)+'%';
+  const warn=you>68;document.getElementById('mYou').style.background=warn?'var(--warn)':'var(--accent)';
+  document.getElementById('coachTxt').textContent=`You ${you}% · Them ${100-you}% · ${warn?'slow down — ask a question':'listening well'}`;}
+function card(kind,title,body,opts={}){
+  const c=document.getElementById('cards');if(c.querySelector('.empty'))c.innerHTML='';
+  const el=document.createElement('div');el.className='card '+kind;
+  const ic={objection:'🛡️',script:'🧭',coach2:'🎯',answer:'💬'}[kind]||'💬';
+  el.innerHTML=`<div class="h"><span>${ic} <b>${title}</b></span>${opts.now?'<span class="badge">NOW</span>':''}</div><p>${body}</p>`
+    +(opts.spec?`<div class="latency">⚡ pre-warmed · served in ${opts.spec}ms</div>`:'')
+    +(opts.ban?`<div class="latency" style="color:#b9a6ff">🧠 bandit-chosen · +${opts.ban}% lift vs alternatives</div>`:'');
+  c.prepend(el);
+}
+function startCall(){
+  go('call');reset();
+  document.getElementById('modePill').textContent=(MODES.find(m=>m.id===selMode).ic)+' '+(MODES.find(m=>m.id===selMode).n);
+  timerInt=setInterval(()=>{timer++;const m=String(Math.floor(timer/60)).padStart(2,'0'),s=String(timer%60).padStart(2,'0');document.getElementById('timer').textContent=`${m}:${s}`;},1000);
+  setStages('intro');
+  const seq=[
+    [300,()=>card('script','Opener','"Hi Linda — I saw your home on Maple came off the market. Quick question: are you still hoping to get it sold?"',{now:1})],
+    [2400,()=>{line('rep','Hi Linda, I saw your home came off the market — are you still hoping to sell?');talk(55);}],
+    [4600,()=>line('prospect','Ugh, who is this? How did you even get my number?')],
+    [5000,()=>card('objection','Objection · How\'d you get my number','"Fair question — your listing came up as recently expired. I\'m not a robocall, it\'s just me, and I\'ll be quick and respectful of your time."',{now:1,spec:90})],
+    [7800,()=>{line('rep','Fair question — it came up as recently expired. Just me, I\'ll be quick.');setStages('discovery');talk(46);}],
+    [9000,()=>card('script','Discovery','Diagnose: "What do you think kept it from selling?" — then let her talk.')],
+    [10800,()=>line('rep','Can I ask — what do you think kept it from selling?')],
+    [13000,()=>line('prospect','Honestly? Our agent did nothing. And every agent says the same thing.')],
+    [13400,()=>card('objection','Objection · All agents are the same','"You\'re right to be skeptical — you just lived through it. That\'s exactly why I won\'t pitch you on the phone. Let me earn 15 minutes and show you what went wrong."',{now:1,ban:23})],
+    [16800,()=>{line('rep','You\'re right to be skeptical, you just lived it. That\'s why I won\'t pitch you — let me earn 15 minutes.');setStages('value');talk(72);}],
+    [17600,()=>card('coach2','You\'re talking too much','Stop. Ask for the appointment now.',{now:1})],
+    [19600,()=>card('answer','Say this','"I\'ve got two slots — tomorrow at 5, or Thursday morning. Which is easier?"',{now:1,ban:18})],
+    [21800,()=>{line('rep','I\'ve got two slots — tomorrow at 5, or Thursday morning. Which works?');setStages('close');talk(50);}],
+    [24000,()=>line('prospect','...Thursday morning could work, I guess.')],
+    [24600,()=>{setStages('wrap');card('script','Lock it in','Confirm time + address, set expectations, thank her.');talk(45);}],
+    [26600,()=>line('rep','Perfect — Thursday 9 AM, I\'ll come to you. Thanks Linda!')],
+    [28600,()=>endCall()],
+  ];
+  window._seq=seq.map(([t,fn])=>setTimeout(fn,t));
+}
+function endCall(){clearInterval(timerInt);(window._seq||[]).forEach(clearTimeout);go('post');}
+function reset(){timer=0;clearInterval(timerInt);(window._seq||[]).forEach(clearTimeout);
+  document.getElementById('transcript').innerHTML='';document.getElementById('cards').innerHTML='<div class="empty">The call is starting…<br>Parley is pre-warming likely objections.</div>';
+  document.getElementById('timer').textContent='00:00';setStages('intro');talk(30);}
+function toggleDiscreet(){discreet=!discreet;document.getElementById('discreetBtn').style.opacity=discreet?1:.4;toast(discreet?'Discreet mode on — hidden from screen-share':'Discreet mode off');}
+</script>
+</body>
+</html>
