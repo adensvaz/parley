@@ -64,7 +64,7 @@ async function main() {
     for await (const m of nc.subscribe(SUBJECTS.callEnded, q)) {
       const e = jc.decode(m.data) as Envelope<CallEnded>;
       const s = sessions.get(e.data.callId);
-      if (s) { await s.eng.finish(); sessions.delete(e.data.callId); }
+      if (s) { s.eng.recordOutcome(e.data.appointmentSet); await s.eng.finish(); sessions.delete(e.data.callId); }
       persistEnd(e.orgId, e.data.callId, { disposition: e.data.disposition, talkRatioRep: e.data.talkRatioRep, appointmentSet: e.data.appointmentSet });
     }
   })();

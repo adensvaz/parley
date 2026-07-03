@@ -13,6 +13,8 @@ export interface ObjectionRebuttal {
   rebuttal: string;
   /** drives card urgency + analytics weighting */
   severity?: "low" | "med" | "high";
+  /** optional rebuttal variants — the contextual bandit picks the best per segment over time */
+  variants?: { id: string; text: string }[];
 }
 
 export interface ProspectingMode {

@@ -9,7 +9,11 @@ import OpenAI from "openai";
 import type {
   ServerEvent, CallStage, Speaker, LeadContext, CopilotCard,
 } from "./types.js";
-import { getMode, type ProspectingMode } from "./modes.js";
+import { getMode, type ProspectingMode, type ObjectionRebuttal } from "./modes.js";
+import { RebuttalBandit } from "./leaps/bandit.js";
+
+// A process-wide bandit so learning persists across calls (per-segment posteriors).
+const bandit = new RebuttalBandit();
 
 // Lazy-init: importing this module must NOT require an API key (keeps it testable and
 // prevents a missing key from crashing the whole process at load).
@@ -29,6 +33,8 @@ export class CopilotEngine {
   private prospectWords = 0;
   private firedObjections = new Set<string>();
   private lastLlmAt = 0;
+  // rebuttals shown this call whose outcome (appointment set?) will train the bandit
+  private shown: { ctx: string; arm: string }[] = [];
 
   constructor(
     modeId: string,
@@ -71,7 +77,7 @@ export class CopilotEngine {
         this.emit(card({
           kind: "objection",
           title: `Objection: ${o.label}`,
-          body: o.rebuttal,
+          body: this.pickRebuttal(o),
           urgency: "now",
           stage: "objection",
         }));
@@ -79,6 +85,22 @@ export class CopilotEngine {
         return;
       }
     }
+  }
+
+  /** Choose the rebuttal: bandit-optimized if variants exist, else the static line. */
+  private pickRebuttal(o: ObjectionRebuttal): string {
+    if (!o.variants?.length) return o.rebuttal;
+    const ctx = `${o.label}|${this.mode.id}|${this.lead?.leadType ?? ""}`;
+    const arm = bandit.select(ctx, o.variants.map((v) => v.id));
+    this.shown.push({ ctx, arm });
+    return o.variants.find((v) => v.id === arm)?.text ?? o.rebuttal;
+  }
+
+  /** Train the bandit on the call outcome (reward = appointment set). Call on call.ended. */
+  recordOutcome(appointmentSet: boolean): void {
+    const reward: 0 | 1 = appointmentSet ? 1 : 0;
+    for (const s of this.shown) bandit.update(s.ctx, s.arm, reward);
+    this.shown = [];
   }
 
   private advanceStage(text: string, speaker: Speaker) {
