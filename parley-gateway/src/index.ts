@@ -67,6 +67,10 @@ function handleConnection(ws: WebSocket, ctx: AuthContext) {
       void startCall(msg);
     } else if (msg.type === "audio" && (msg.speaker === "rep" || msg.speaker === "prospect")) {
       stt.push(msg.speaker as Speaker, msg.pcm16);
+    } else if (msg.type === "transcript" && (msg.speaker === "rep" || msg.speaker === "prospect")) {
+      // Practice / no-STT mode: client-injected transcript, forwarded to the bus like an STT result.
+      publish<CallTranscript>(SUBJECTS.callTranscript, ctx.orgId, traceId, { callId, speaker: msg.speaker, text: msg.text ?? "", isFinal: msg.isFinal !== false });
+      send({ type: "transcript", speaker: msg.speaker, text: msg.text ?? "", isFinal: msg.isFinal !== false, ts: Date.now() });
     } else if (msg.type === "stop") {
       stt.stop();
     }
