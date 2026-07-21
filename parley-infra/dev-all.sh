@@ -50,6 +50,9 @@ done
 if [ "$SMOKE" = "--smoke" ]; then
   echo; echo "▶ cross-service smoke:"
   ( cd "$ROOT/parley-copilot-service" && npx tsx qa/smoke.ts )
+elif [ "$SMOKE" = "--seam" ]; then
+  echo; echo "▶ desktop↔gateway seam (real wire protocol):"
+  ( cd "$ROOT/parley-desktop" && npx tsx qa/seam.test.ts )
 else
   echo; echo "Platform up. Press Ctrl-C to stop."; wait
 fi
