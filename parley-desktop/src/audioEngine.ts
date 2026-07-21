@@ -5,9 +5,14 @@
 // Each stream is downsampled to 16kHz mono PCM16 in an AudioWorklet and streamed over a
 // single WebSocket to the gateway, tagged by speaker. ServerEvents come back on the same socket.
 
-import type { ServerEvent } from "../shared/types";
+// Messages the gateway sends back to the desktop.
+export type GatewayMessage =
+  | { type: "card"; kind: "objection" | "script" | "coach" | "answer" | "signal"; title: string; body: string; urgency: "now" | "soon" | "fyi"; id: string }
+  | { type: "transcript"; speaker: "rep" | "prospect"; text: string; isFinal: boolean; ts: number }
+  | { type: "lead"; name?: string; phone?: string; lead_type?: string; address?: string; status?: string }
+  | { type: "blocked"; reason: string; plan?: string };
 
-const GATEWAY = (import.meta as any).env?.VITE_GATEWAY_URL ?? "ws://localhost:8787";
+const GATEWAY = (import.meta as any).env?.VITE_GATEWAY_URL ?? "ws://localhost:8080";
 
 // Worklet: decimate context-rate float audio to 16kHz Int16, post ~100ms chunks.
 const WORKLET = `
@@ -34,11 +39,13 @@ registerProcessor('pcm16', PCM16);
 `;
 
 export interface CaptureOptions {
+  token: string;               // dev token or Clerk JWT — the gateway authenticates on the upgrade
   modeId: string;
+  phone?: string;              // prospect number → gateway fetches lead context from CRM
   micDeviceId?: string | null;
   captureSystemAudio?: boolean;
   noiseSuppression?: boolean;
-  onEvent: (ev: ServerEvent) => void;
+  onEvent: (ev: GatewayMessage) => void;
 }
 
 let ws: WebSocket | null = null;
@@ -47,10 +54,10 @@ let streams: MediaStream[] = [];
 let workletUrl: string | null = null;
 
 export async function startCapture(opts: CaptureOptions): Promise<void> {
-  ws = new WebSocket(GATEWAY);
+  ws = new WebSocket(`${GATEWAY}/rt?token=${encodeURIComponent(opts.token)}`);
   await new Promise<void>((res, rej) => { ws!.onopen = () => res(); ws!.onerror = () => rej(new Error("gateway unreachable")); });
-  ws.onmessage = (e) => { try { opts.onEvent(JSON.parse(e.data) as ServerEvent); } catch { /* ignore */ } };
-  send({ type: "start", modeId: opts.modeId });
+  ws.onmessage = (e) => { try { opts.onEvent(JSON.parse(e.data) as GatewayMessage); } catch { /* ignore */ } };
+  send({ type: "start", modeId: opts.modeId, phone: opts.phone });
 
   ctx = new AudioContext();
   workletUrl = URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }));
@@ -85,6 +92,12 @@ function pipe(stream: MediaStream, speaker: "rep" | "prospect") {
   node.port.onmessage = (e: MessageEvent<ArrayBuffer>) => send({ type: "audio", speaker, pcm16: toB64(e.data) });
   src.connect(node);
   // worklet is a sink; do NOT connect to destination (avoid echo / feedback)
+}
+
+/** Practice / dev mode: inject a transcript line directly (no mic) — the gateway forwards it to
+ *  the copilot exactly like an STT result. Powers "Practice Mode" and headless testing. */
+export function sendTranscript(speaker: "rep" | "prospect", text: string, isFinal = true): void {
+  send({ type: "transcript", speaker, text, isFinal });
 }
 
 export function stopCapture(): void {
