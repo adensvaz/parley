@@ -1,47 +1,54 @@
 import { create } from "zustand";
-import type { CopilotCard, CallStage, LeadContext, PostCallEvent } from "../shared/types";
 
-interface TranscriptLine { speaker: "rep" | "prospect"; text: string; ts: number }
+export type Screen = "onboard" | "mode" | "call" | "post";
+export interface Card { id: string; kind: "objection" | "script" | "coach" | "answer" | "signal" | "coach2"; title: string; body: string; urgency: "now" | "soon" | "fyi" }
+export interface Line { speaker: "rep" | "prospect"; text: string; ts: number }
+export interface Lead { name?: string; phone?: string; lead_type?: string; address?: string; status?: string }
 
-interface ParleyState {
-  live: boolean;
+interface State {
+  screen: Screen;
+  onboard: number;
   modeId: string;
-  stage: CallStage;
-  discreet: boolean;
-  talkRatioRep: number;
-  sentiment: string;
-  cards: CopilotCard[];
-  transcript: TranscriptLine[];
-  lead?: LeadContext;
-  postcall?: PostCallEvent;
+  live: boolean;
+  stage: string;
+  talkRatio: number;      // rep fraction 0..1
+  cards: Card[];
+  transcript: Line[];
+  lead?: Lead;
+  blocked?: string;
+  go: (s: Screen) => void;
+  setOnboard: (n: number) => void;
   setMode: (id: string) => void;
-  start: () => void;
-  stop: () => void;
-  pushCard: (c: CopilotCard) => void;
-  pushLine: (l: TranscriptLine) => void;
-  setStage: (s: CallStage) => void;
-  setMetrics: (talkRatioRep: number, sentiment: string) => void;
-  setPostcall: (p: PostCallEvent) => void;
-  setDiscreet: (on: boolean) => void;
+  startLive: () => void;
+  endLive: () => void;
+  pushCard: (c: Card) => void;
+  pushLine: (l: Line) => void;
+  setStage: (s: string) => void;
+  setTalk: (r: number) => void;
+  setLead: (l?: Lead) => void;
+  setBlocked: (b?: string) => void;
+  reset: () => void;
 }
 
-export const useStore = create<ParleyState>((set) => ({
-  live: false,
+export const useStore = create<State>((set) => ({
+  screen: "onboard",
+  onboard: 0,
   modeId: "expired",
+  live: false,
   stage: "intro",
-  discreet: true,
-  talkRatioRep: 0,
-  sentiment: "neutral",
+  talkRatio: 0.3,
   cards: [],
   transcript: [],
-  setMode: (id) => set({ modeId: id }),
-  start: () => set({ live: true, cards: [], transcript: [], postcall: undefined, stage: "intro" }),
-  stop: () => set({ live: false }),
-  // newest card first, keep the latest "now"-urgency objection pinned at top
+  go: (screen) => set({ screen }),
+  setOnboard: (onboard) => set({ onboard }),
+  setMode: (modeId) => set({ modeId }),
+  startLive: () => set({ live: true, cards: [], transcript: [], stage: "intro", lead: undefined, blocked: undefined }),
+  endLive: () => set({ live: false }),
   pushCard: (c) => set((s) => ({ cards: [c, ...s.cards].slice(0, 30) })),
-  pushLine: (l) => set((s) => ({ transcript: [...s.transcript, l].slice(-200) })),
+  pushLine: (l) => set((s) => ({ transcript: [...s.transcript, l].slice(-100) })),
   setStage: (stage) => set({ stage }),
-  setMetrics: (talkRatioRep, sentiment) => set({ talkRatioRep, sentiment }),
-  setPostcall: (postcall) => set({ postcall, live: false }),
-  setDiscreet: (discreet) => set({ discreet }),
+  setTalk: (talkRatio) => set({ talkRatio }),
+  setLead: (lead) => set({ lead }),
+  setBlocked: (blocked) => set({ blocked }),
+  reset: () => set({ live: false, cards: [], transcript: [], stage: "intro", talkRatio: 0.3, lead: undefined, blocked: undefined }),
 }));
