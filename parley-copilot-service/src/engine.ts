@@ -15,6 +15,7 @@ import { RebuttalBandit } from "./leaps/bandit.js";
 import { lexicalAffect, fuseAffect, Thermometer, strategyFor, type Strategy } from "./affect.js";
 import { getCulture, calibrateAffect, culturalize, culturalStyle, type CultureProfile } from "./culture.js";
 import { VoiceBehaviourMeter } from "./behaviour.js";
+import { detectStall, shouldInterrupt, pickTechnique, captureHook, interruptPrompt, type Technique } from "./patterns.js";
 
 // A process-wide bandit so learning persists across calls (per-segment posteriors).
 const bandit = new RebuttalBandit();
@@ -47,6 +48,10 @@ export class CopilotEngine {
   private pendingAcoustic?: Affect;   // acoustic emotion (Hume) buffered from call.affect, fused on next utterance
   private strategy?: Strategy;
   private culture: CultureProfile;
+  // Pattern interrupts / memory hooks — used sparingly (budget of 1) to make a dying call memorable.
+  private interruptsUsed = 0;
+  private awaitingHook = false;                          // set after a memory-hook, to capture their answer
+  private callbackAnchor?: { timeframe?: string; hook?: string }; // → post-call CRM follow-up
 
   constructor(
     modeId: string,
@@ -111,6 +116,40 @@ export class CopilotEngine {
     // proactive coach the instant the room turns hostile — de-escalate to KEEP THEM ON THE LINE.
     if (fused.emotion === "angry")
       this.emit(card({ kind: "coach", title: "They're heating up — de-escalate", body: this.strategy.directive, urgency: "now" }));
+
+    // MEMORY HOOK: if we just deployed one, this prospect turn holds their answer — capture it.
+    if (this.awaitingHook) { const h = captureHook(text); if (h) this.callbackAnchor = { ...this.callbackAnchor, hook: h }; this.awaitingHook = false; }
+
+    // PATTERN INTERRUPT: a soft stall or a disengaging prospect, calm enough, not a hot buyer → make it
+    // memorable instead of hanging up. Fires at most once per call, and only when the culture allows it.
+    const stall = detectStall(text);
+    const ictx = { stall, affect: fused, heat, culture: this.culture, used: this.interruptsUsed, prospectWords: words(text) };
+    if (shouldInterrupt(ictx)) {
+      const tech = pickTechnique(ictx);
+      this.interruptsUsed++;
+      if (stall?.timeframe) this.callbackAnchor = { ...this.callbackAnchor, timeframe: stall.timeframe };
+      if (tech.id === "memory-hook") this.awaitingHook = true;
+      const { line, followCue } = tech.build(ictx);
+      this.emit(card({ kind: "coach", title: `Don't hang up — make it memorable · ${tech.name}`, body: `${line}\n▸ ${followCue}`, urgency: "now" }));
+      void this.maybePatternInterrupt(tech, ictx);   // LLM riffs a fresh, in-voice version — best-effort
+    }
+  }
+
+  /** LLM riffs a fresh, in-voice memorable line from the chosen technique. Best-effort; the deterministic
+   *  card already fired, so this never blocks or breaks the call. */
+  private async maybePatternInterrupt(tech: Technique, ictx: Parameters<typeof interruptPrompt>[1]) {
+    try {
+      const recent = this.transcript.slice(-6).map((u) => `${u.speaker}: ${u.text}`).join("\n");
+      const res = await llm().chat.completions.create({
+        model: MODEL, max_tokens: 70,
+        messages: [
+          { role: "system", content: `${this.mode.systemPrompt}\n${interruptPrompt(tech, ictx)}` },
+          { role: "user", content: recent },
+        ],
+      });
+      const body = res.choices[0]?.message?.content?.trim();
+      if (body) this.emit(card({ kind: "answer", title: `Or, in your own words · ${tech.name}`, body, urgency: "now", stage: this.stage }));
+    } catch { /* fail silent — the deterministic memorable line already landed */ }
   }
 
   private talkRatio(): number { const t = this.repWords + this.prospectWords || 1; return this.repWords / t; }
@@ -242,12 +281,19 @@ export class CopilotEngine {
     if (!full) return;
     // Finalize the Voice Behaviour Analysis first — it must land even if the LLM summary fails.
     this.emit({ type: "behaviour", behaviour: this.behaviour.snapshot(this.talkRatio()), final: true });
+    // Memory hook → a concrete, memorable follow-up the rep will actually keep (deterministic, LLM-independent).
+    const anchor = this.callbackAnchor;
+    if (anchor?.timeframe || anchor?.hook)
+      this.emit(card({ kind: "coach", title: "Follow-up locked", urgency: "fyi",
+        body: `Call back ${anchor.timeframe ?? "as agreed"}${anchor.hook ? ` — open with their “${anchor.hook}.” They'll remember you.` : "."}` }));
     try {
       const res = await llm().chat.completions.create({
         model: MODEL,
         max_tokens: 320,
         messages: [
-          { role: "system", content: `Summarize this cold call for a CRM. Fields: ${this.mode.summaryTemplate.join(", ")}. Then give a disposition, a next step, and a short follow-up ${"SMS"} draft. Return JSON: {summary, disposition, nextStep, followUpDraft:{channel, body}}.` },
+          { role: "system", content: `Summarize this cold call for a CRM. Fields: ${this.mode.summaryTemplate.join(", ")}. Then give a disposition, a next step, and a short follow-up SMS draft. Return JSON: {summary, disposition, nextStep, followUpDraft:{channel, body}}.` +
+            (this.callbackAnchor?.timeframe || this.callbackAnchor?.hook
+              ? ` The rep agreed to follow up${this.callbackAnchor.timeframe ? ` in ${this.callbackAnchor.timeframe}` : ""}${this.callbackAnchor.hook ? ` and captured a personal detail to reference: "${this.callbackAnchor.hook}"` : ""}. Make nextStep reflect that callback${this.callbackAnchor.hook ? ", and weave the detail naturally into followUpDraft.body so it feels personal" : "."}` : "") },
           { role: "user", content: full },
         ],
         response_format: { type: "json_object" },
