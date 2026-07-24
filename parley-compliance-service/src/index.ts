@@ -6,6 +6,7 @@ import Fastify from "fastify";
 import { connect, JSONCodec, type NatsConnection } from "nats";
 import { SUBJECTS } from "@parley/contracts";
 import { withOrg, repo } from "@parley/db";
+import { precallCheck } from "./guard.js";
 
 const jc = JSONCodec();
 
@@ -40,6 +41,15 @@ async function main() {
     const { orgId, phoneHash } = req.body;
     await withOrg(orgId, (tx) => repo.dnc.add(tx, orgId, phoneHash));
     return { ok: true };
+  });
+
+  // The full pre-dial gate: DNC + recording-consent + calling-window in ONE call. The dialer/gateway
+  // hits this before connecting; the copilot surfaces `warnings` (and consentLine) on the overlay.
+  app.post<{ Body: { orgId: string; phoneHash: string; areaCode: string; nowUtcMs?: number } }>("/precall", async (req) => {
+    const { orgId, phoneHash, areaCode } = req.body ?? ({} as any);
+    if (!orgId || !phoneHash || !areaCode) return { allow: false, warnings: ["missing org/phone/areaCode"] }; // fail-closed
+    const dnc = await withOrg(orgId, (tx) => repo.dnc.isListed(tx, orgId, phoneHash));
+    return precallCheck({ areaCode, dnc, nowUtcMs: req.body.nowUtcMs ?? Date.now() });
   });
 
   await app.listen({ port: Number(process.env.PORT) || 8083, host: "0.0.0.0" });

@@ -36,10 +36,13 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm install -g tsx@4
-      - name: copilot engine (affect, culture, behaviour, patterns)
+      - name: copilot engine (affect, culture, behaviour, patterns, objectives)
         working-directory: parley-copilot-service
         run: |
-          for t in affect culture behaviour patterns; do echo "── $t ──"; tsx qa/$t.test.ts; done
+          for t in affect culture behaviour patterns objectives; do echo "── $t ──"; tsx qa/$t.test.ts; done
       - name: gateway affect DSP
         working-directory: parley-gateway
         run: tsx qa/affect.test.ts
+      - name: compliance rails (TCPA guard)
+        working-directory: parley-compliance-service
+        run: tsx qa/guard.test.ts
