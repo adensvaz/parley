@@ -1,4 +1,5 @@
 // Shared contracts between Electron client, renderer, and cloud gateway.
+import type { Affect, HeatTier, VoiceBehaviour } from "@parley/contracts";
 
 export type Speaker = "rep" | "prospect";
 
@@ -64,11 +65,30 @@ export interface PostCallEvent {
   followUpDraft: { channel: "email" | "sms"; body: string };
 }
 
+/** Prospect emotion + running lead temperature, emitted as the copilot re-reads the room each turn. */
+export interface AffectEvent {
+  type: "affect";
+  affect: Affect;               // fused acoustic + lexical emotion
+  heat: number;                 // 0..100 lead temperature
+  tier: HeatTier;               // cold | cool | warm | hot
+  trend: "up" | "flat" | "down";
+  drivers: string[];            // why it moved
+}
+
+/** Voice Behaviour Analysis (premium) — a rolling behavioural read of the call, and the final profile. */
+export interface BehaviourEvent {
+  type: "behaviour";
+  behaviour: VoiceBehaviour;
+  final?: boolean;              // true on the call-end profile that lands in the scorecard
+}
+
 export type ServerEvent =
   | TranscriptEvent
   | CopilotCard
   | StageEvent
   | MetricsEvent
+  | AffectEvent
+  | BehaviourEvent
   | PostCallEvent;
 
 /** Lead pulled from CRM and shown in the context panel. */

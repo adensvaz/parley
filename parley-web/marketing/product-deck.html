@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Parley — Product Deck</title>
+<style>
+:root{
+  /* light theme */
+  --bg:#EAF0F9;--bg2:#F4F7FC;--panel:#FFFFFF;--panel2:#F7FAFF;
+  --ink:#0C1424;--mut:#55617A;--dim:#8A93A8;
+  --line:rgba(12,20,36,.09);--line2:rgba(12,20,36,.16);
+  --green:#0BA37A;--greenv:#12C98F;--cyan:#0AA6C7;--blue:#2D63F0;--red:#E23A62;--amber:#D98A11;--violet:#6D45E6;
+  --shadow:0 14px 40px rgba(12,20,36,.10);
+  /* dark product-card tokens (the actual overlay UI) */
+  --d-bg:#0F1526;--d-line:rgba(255,255,255,.12);--d-txt:#EEF1FA;--d-mut:#95A0BC;--d-green:#2BFFB0;--d-blue:#6EA8FF;--d-red:#FF4D6D;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,"Helvetica Neue",Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html,body{background:var(--bg);color:var(--ink);font-family:var(--sans)}
+@page{size:1280px 720px;margin:0}
+.slide{position:relative;width:1280px;height:720px;overflow:hidden;page-break-after:always;
+  background:radial-gradient(1100px 640px at 84% -14%,rgba(11,163,122,.10),transparent 60%),
+             radial-gradient(900px 620px at 0% 112%,rgba(45,99,240,.08),transparent 55%),
+             linear-gradient(180deg,var(--bg2),var(--bg))}
+.slide:last-child{page-break-after:auto}
+.grid::after{content:"";position:absolute;inset:0;opacity:.5;pointer-events:none;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:48px 48px;-webkit-mask-image:radial-gradient(1000px 560px at 50% 42%,#000,transparent 82%)}
+.pad{position:absolute;inset:0;padding:64px 74px;z-index:1}
+.kick{font:700 13px/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--green)}
+.h1{font:800 78px/1 var(--sans);letter-spacing:-.03em}
+.h2{font:800 46px/1.04 var(--sans);letter-spacing:-.025em}
+.h3{font:800 27px/1.1 var(--sans);letter-spacing:-.02em}
+.lead{font:400 21px/1.45 var(--sans);color:var(--mut)}
+.body{font:400 16px/1.5 var(--sans);color:var(--mut)}
+/* solid accent — renders reliably in every PDF viewer (clipped gradients break in Preview) */
+.grad{color:var(--green)}
+.mono{font:500 13px/1.5 var(--mono);color:var(--mut)}
+.row{display:flex}.col{display:flex;flex-direction:column}.between{justify-content:space-between}.center{align-items:center}
+.pill{display:inline-flex;align-items:center;gap:9px;padding:8px 15px;border:1px solid var(--line2);border-radius:999px;
+  background:rgba(11,163,122,.08);font:700 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--green)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 10px rgba(11,163,122,.5)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:var(--shadow)}
+.card .t{font:800 19px/1.2 var(--sans);margin-bottom:8px;color:var(--ink)}
+.card .d{font:400 14.5px/1.5 var(--sans);color:var(--mut)}
+.tag{display:inline-block;padding:6px 12px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);font:600 12px/1 var(--mono);color:var(--mut)}
+.foot{position:absolute;left:74px;right:74px;bottom:26px;display:flex;justify-content:space-between;z-index:1;
+  font:600 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.stat .big{font:800 50px/1 var(--sans)}.stat .lbl{font:500 13px/1.4 var(--mono);color:var(--dim);margin-top:8px}
+.note{font:500 11px/1.4 var(--mono);color:var(--dim)}
+.chip{padding:6px 12px;border-radius:8px;font:700 12px/1 var(--mono);background:rgba(11,163,122,.1);color:var(--green)}
+
+/* dark product overlay card (the real UI) */
+.prod{background:linear-gradient(180deg,#141C31,var(--d-bg));border:1px solid var(--d-line);border-radius:18px;
+  box-shadow:0 26px 70px rgba(12,20,36,.28);overflow:hidden;color:var(--d-txt)}
+.prod .hd{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--d-line)}
+.prod .mn{font:500 13px/1.5 var(--mono);color:var(--d-mut)}
+.prod .side{font:600 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;margin:14px 0 8px}
+.prod .bub{background:rgba(110,168,255,.14);border:1px solid rgba(110,168,255,.34);border-radius:14px;border-bottom-left-radius:4px;padding:12px 15px;font:500 14.5px/1.45 var(--sans);color:#dbe7ff}
+.prod .cardg{background:linear-gradient(180deg,rgba(43,255,176,.14),rgba(43,255,176,.05));border:1px solid rgba(43,255,176,.44);
+  box-shadow:0 0 26px rgba(43,255,176,.28);border-radius:15px;padding:15px 16px}
+.pdot{width:9px;height:9px;border-radius:50%;background:var(--d-red);box-shadow:0 0 10px var(--d-red)}
+</style></head><body>
+
+<!-- 1 · COVER -->
+<section class="slide grid"><div class="pad col between">
+  <div class="row between center">
+    <div class="row center" style="gap:11px"><span class="dot"></span><span style="font:800 24px/1 var(--sans);letter-spacing:-.02em">Parley</span></div>
+    <div class="mono" style="color:var(--dim)">Product overview</div>
+  </div>
+  <div style="max-width:960px">
+    <div class="pill"><span class="dot"></span>Live on the call</div>
+    <div class="h1" style="margin:28px 0 24px;font-size:74px;line-height:1.03">Put a world-class closer<br>in <span class="grad">every rep’s ear.</span></div>
+    <div class="lead" style="max-width:700px;font-size:20px;line-height:1.5">A real-time AI sales copilot for high-ticket calls. It whispers the exact words your best closer would use — <b style="color:var(--ink)">in under a second, while the prospect is still talking.</b></div>
+  </div>
+  <div class="row between center">
+    <div class="row" style="gap:10px"><span class="tag">Real estate</span><span class="tag">High-ticket &amp; coaching</span><span class="tag">Real-time, on any dialer</span></div>
+    <div class="mono" style="color:var(--dim)">Trained on the closers’ playbook</div>
+  </div>
+</div><div class="foot"><span>Parley</span><span>01</span></div></section>
+
+<!-- 2 · THE STAKES -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Why it’s needed</div>
+  <div class="h2" style="margin:14px 0 10px;max-width:940px">In high-ticket sales, one call is worth <span class="grad">a fortune.</span> Most reps fumble it.</div>
+  <div class="lead" style="max-width:860px">A single real-estate or coaching close can be worth tens of thousands in commission. The lead cost you real money to get on the phone. And it all hinges on the ten seconds after the prospect pushes back.</div>
+  <div class="row" style="gap:16px;margin-top:32px">
+    <div class="card" style="flex:1"><div class="t" style="color:var(--red)">Expensive leads, wasted</div><div class="d">You paid $50–$300 to get this call. One frozen objection and that spend — and the deal — is gone.</div></div>
+    <div class="card" style="flex:1"><div class="t" style="color:var(--red)">One objection decides it</div><div class="d">“It’s too expensive.” “I need to talk to my spouse.” “Let me think about it.” The rep folds; the close evaporates.</div></div>
+    <div class="card" style="flex:1"><div class="t" style="color:var(--red)">Talent won’t transfer</div><div class="d">Your best closer’s instincts live in their head. New reps can’t copy them from a PDF — so results swing wildly by seat.</div></div>
+    <div class="card" style="flex:1"><div class="t" style="color:var(--red)">Coaching comes too late</div><div class="d">By the time anyone reviews the recording, the money’s gone and the rep’s made the same miss 50 more times.</div></div>
+  </div>
+  <div class="note" style="margin-top:26px">High-ticket sales is won or lost in the moment — exactly where no tool has ever been able to help. Until now.</div>
+</div><div class="foot"><span>Parley</span><span>02 · The stakes</span></div></section>
+
+<!-- 3 · MEET PARLEY -->
+<section class="slide grid"><div class="pad row" style="gap:44px">
+  <div class="col" style="flex:1.05;justify-content:center">
+    <div class="kick">The product</div>
+    <div class="h2" style="margin:14px 0 16px">A closer that rides<br>along on <span class="grad">every call.</span></div>
+    <div class="lead" style="max-width:520px">Parley hears both sides of the live call, reads the moment, and hands your rep the exact line to say — in under a second. The prospect never knows. Your close rate does.</div>
+    <div class="col" style="gap:14px;margin-top:26px">
+      <div class="row center" style="gap:12px"><span class="chip">01</span><span class="body" style="color:var(--ink)">Hears both sides — over any dialer, invisible to the prospect</span></div>
+      <div class="row center" style="gap:12px"><span class="chip" style="background:rgba(10,166,199,.12);color:var(--cyan)">02</span><span class="body" style="color:var(--ink)">Knows the moment — the objection, the stall, the buying signal</span></div>
+      <div class="row center" style="gap:12px"><span class="chip" style="background:rgba(45,99,240,.1);color:var(--blue)">03</span><span class="body" style="color:var(--ink)">Whispers the close — the exact line, from a world-class playbook</span></div>
+    </div>
+  </div>
+  <div class="col" style="width:452px;align-self:center">
+    <div class="prod">
+      <div class="hd"><div class="row center" style="gap:9px"><span class="pdot"></span><span class="mn" style="color:var(--d-txt)">Live call · 08:41</span></div><span class="mn">discreet overlay</span></div>
+      <div style="padding:16px 18px 20px">
+        <div class="side" style="color:var(--d-blue)">Prospect</div>
+        <div class="bub">“Honestly it’s just too expensive right now.”</div>
+        <div class="side" style="color:var(--d-green)">Parley</div>
+        <div class="cardg">
+          <div class="mn" style="color:var(--d-red);letter-spacing:.1em;margin-bottom:8px">● OBJECTION · PRICE</div>
+          <div style="font:500 14.5px/1.45 var(--sans);color:#d9fff2">“Totally get it. Quick question — is it that it costs too much, or that you’re not yet sure it’ll pay for itself? Because those are two very different problems.”</div>
+          <div class="mn" style="color:var(--d-mut);margin-top:9px">▸ isolate price vs. value · then stack the return</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><div class="foot"><span>Parley</span><span>03 · Meet Parley</span></div></section>
+
+<!-- 4 · HOW IT WORKS -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">How it works</div>
+  <div class="h2" style="margin:14px 0 8px">Hear. Understand. Whisper. <span class="grad">In under a second.</span></div>
+  <div class="lead" style="max-width:840px">Post-call tools grade the call three days later. Parley closes the whole loop <b style="color:var(--ink)">in real time — before the pause ever gets awkward.</b> No bot on the line, no rip-and-replace.</div>
+  <div class="row center" style="gap:16px;margin-top:44px">
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--blue)">01 · LISTEN</div><div class="t" style="margin-top:12px">Hears both sides</div><div class="d">Rep + prospect audio, transcribed live over any softphone or dialer.</div></div>
+    <div class="col center" style="justify-content:center;color:var(--dim);font-size:26px;font-weight:700">→</div>
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--green)">02 · UNDERSTAND</div><div class="t" style="margin-top:12px">Reads the moment</div><div class="d">Detects the stage and classifies the objection or buying signal the instant it lands.</div></div>
+    <div class="col center" style="justify-content:center;color:var(--dim);font-size:26px;font-weight:700">→</div>
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--cyan)">03 · WHISPER</div><div class="t" style="margin-top:12px">Hands over the line</div><div class="d">The perfect response appears on the overlay. The rep says it in their own voice, and keeps control.</div></div>
+  </div>
+  <div class="row" style="gap:10px;margin-top:38px"><span class="tag">Any dialer / softphone</span><span class="tag">Invisible to the prospect</span><span class="tag">Hidden on screen-share</span><span class="tag">Live in minutes</span></div>
+</div><div class="foot"><span>Parley</span><span>04 · How it works</span></div></section>
+
+<!-- 5 · HOW YOU CONNECT -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Getting started</div>
+  <div class="h2" style="margin:14px 0 8px">Three ways to plug in.</div>
+  <div class="lead" style="max-width:840px">However your reps get on the phone, Parley can hear the call. Pick the path that fits — you’re live in minutes, with no rip-and-replace on any of them.</div>
+  <div class="row" style="gap:16px;margin-top:34px">
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--green)">OPTION 1 · TODAY</div><div class="t" style="margin-top:12px">📞 Your existing dialer</div><div class="d">Parley listens at the audio layer over the softphone or dialer you already run — Aircall, RingCentral, kvCORE, Kixie. Nothing to change.</div></div>
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--cyan)">OPTION 2 · ROLLING OUT</div><div class="t" style="margin-top:12px">☎️ A Parley phone number</div><div class="d">Prefer not to touch your setup? Route calls through a dedicated Parley virtual number and it captures both sides automatically — zero install.</div></div>
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--blue)">OPTION 3 · ROLLING OUT</div><div class="t" style="margin-top:12px">🎥 Zoom &amp; video calls</div><div class="d">Closing over Zoom or Google Meet? Parley listens to the video call and coaches your rep exactly the same way as a phone call.</div></div>
+  </div>
+  <div class="note" style="margin-top:26px">Phone, virtual number, or video — Parley meets your team where they already sell.</div>
+</div><div class="foot"><span>Parley</span><span>05 · How you connect</span></div></section>
+
+<!-- 5 · THE BRAIN (hero) -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">The brain</div>
+  <div class="h2" style="margin:14px 0 10px;max-width:960px">It doesn’t think like generic AI.<br>It thinks like the <span class="grad">greatest closers alive.</span></div>
+  <div class="lead" style="max-width:900px">Parley’s brain is built on the proven frameworks behind the biggest names in high-ticket closing and negotiation. Every rep gets their playbook — the value framing, the tactical empathy, the questions, the close — live, in the moment.</div>
+  <div class="row" style="gap:14px;margin-top:34px">
+    <div class="card" style="flex:1"><div class="h3" style="font-size:20px">Alex Hormozi</div><div class="mono" style="color:var(--green);margin:6px 0 10px">Value &amp; offer framing</div><div class="d">Reframe price into return. Stack value until the cost feels obvious.</div></div>
+    <div class="card" style="flex:1"><div class="h3" style="font-size:20px">Chris Voss</div><div class="mono" style="color:var(--cyan);margin:6px 0 10px">Tactical empathy</div><div class="d">Labels, calibrated questions, and “no”-oriented negotiation.</div></div>
+    <div class="card" style="flex:1"><div class="h3" style="font-size:20px">Jeremy Miner</div><div class="mono" style="color:var(--blue);margin:6px 0 10px">NEPQ questioning</div><div class="d">Neuro-emotional questions that let the prospect sell themselves.</div></div>
+    <div class="card" style="flex:1"><div class="h3" style="font-size:20px">Grant Cardone</div><div class="mono" style="color:var(--amber);margin:6px 0 10px">Closing &amp; follow-up</div><div class="d">Relentless, structured closing and objection persistence.</div></div>
+    <div class="card" style="flex:1"><div class="h3" style="font-size:20px">Straight Line</div><div class="mono" style="color:var(--violet);margin:6px 0 10px">Belfort system</div><div class="d">Control the tonality and the path from open to close.</div></div>
+  </div>
+  <div class="row center" style="gap:12px;margin-top:26px"><span class="pill" style="color:var(--blue);border-color:rgba(45,99,240,.3);background:rgba(45,99,240,.06)">Your edge</span><span class="body" style="font-size:16px;color:var(--ink)">On top of the masters, Parley learns <b>your</b> best reps’ winning lines — so the brain gets sharper with every call your team makes.</span></div>
+  <div class="note" style="margin-top:16px">Names denote publicly documented sales methodologies used to inform training and prompting; no affiliation or endorsement implied.</div>
+</div><div class="foot"><span>Parley</span><span>06 · The brain</span></div></section>
+
+<!-- 6 · THE OVERLAY -->
+<section class="slide grid"><div class="pad row" style="gap:44px">
+  <div class="col" style="flex:1;justify-content:center">
+    <div class="kick">Product · the overlay</div>
+    <div class="h2" style="margin:14px 0 16px">A closer only your<br>rep can see.</div>
+    <div class="body" style="max-width:470px;font-size:16px">The overlay floats over your dialer and updates silently as the call moves. It never plays into the audio, so the prospect hears nothing — and it auto-hides on screen-share, so demos and monitoring stay clean.</div>
+    <div class="col" style="gap:12px;margin-top:24px">
+      <div class="row center" style="gap:11px"><span class="dot"></span><span class="body" style="color:var(--ink)">Silent &amp; on-screen only — undetectable to the prospect</span></div>
+      <div class="row center" style="gap:11px"><span class="dot"></span><span class="body" style="color:var(--ink)">Works over Aircall, RingCentral, kvCORE dialer, a browser softphone…</span></div>
+      <div class="row center" style="gap:11px"><span class="dot"></span><span class="body" style="color:var(--ink)">Call-stage rail so the rep always knows where the call is</span></div>
+    </div>
+  </div>
+  <div class="col" style="width:452px;align-self:center">
+    <div class="prod">
+      <div class="hd"><div class="row center" style="gap:9px"><span class="pdot"></span><span class="mn" style="color:var(--d-txt)">Live call · 03:12</span></div><span class="mn">stage: discovery → close</span></div>
+      <div style="padding:16px 18px 20px">
+        <div class="side" style="color:var(--d-blue)">Prospect</div>
+        <div class="bub">“I like it, but I need to talk to my wife before I decide.”</div>
+        <div class="side" style="color:var(--d-green)">Parley</div>
+        <div class="cardg">
+          <div class="mn" style="color:var(--d-red);letter-spacing:.1em;margin-bottom:8px">● STALL · SPOUSE</div>
+          <div style="font:500 14.5px/1.45 var(--sans);color:#d9fff2">“Makes total sense — this should be a joint call. What’s the one thing she’ll want to know that I haven’t covered yet? Let’s make sure you can answer it for her.”</div>
+          <div class="mn" style="color:var(--d-mut);margin-top:9px">▸ surface the real objection · schedule the joint call</div>
+        </div>
+        <div class="row center" style="gap:8px;margin-top:14px;font:600 10.5px/1 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--d-mut)"><span>Opener</span><span>→</span><span style="color:var(--d-green)">● Objection</span><span>→</span><span>Discovery</span><span>→</span><span>Close</span></div>
+      </div>
+    </div>
+  </div>
+</div><div class="foot"><span>Parley</span><span>07 · The overlay</span></div></section>
+
+<!-- 7 · OBJECTION HANDLING -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Product · live objection handling</div>
+  <div class="h2" style="margin:14px 0 8px">Never blank on an objection again.</div>
+  <div class="lead" style="max-width:820px">The instant a prospect pushes back, Parley classifies the objection and delivers the master-level response — before the pause gets awkward.</div>
+  <div class="row" style="gap:16px;margin-top:32px">
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--red)">“It’s too expensive.”</div><div class="d" style="margin-top:12px;color:var(--ink)">→ Isolate price vs. value, then stack the return until the number feels small. <span style="color:var(--dim)">(Hormozi)</span></div></div>
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--red)">“Let me think about it.”</div><div class="d" style="margin-top:12px;color:var(--ink)">→ Label the hesitation and ask the calibrated question that surfaces the real block. <span style="color:var(--dim)">(Voss)</span></div></div>
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--red)">“I need to talk to my spouse.”</div><div class="d" style="margin-top:12px;color:var(--ink)">→ Validate, then arm them with the answer their partner will ask for. <span style="color:var(--dim)">(NEPQ)</span></div></div>
+  </div>
+  <div class="row center" style="gap:12px;margin-top:30px"><span class="pill">Learns your team</span><span class="body" style="font-size:16px;color:var(--ink)">Every rep taps to log which line landed — so Parley’s rebuttals get sharper for your exact market with every call.</span></div>
+</div><div class="foot"><span>Parley</span><span>08 · Objection handling</span></div></section>
+
+<!-- 8 · COACHING & SCORING -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Product · for managers</div>
+  <div class="h2" style="margin:14px 0 8px">Coach the whole floor. In real time.</div>
+  <div class="lead" style="max-width:820px">You can’t sit on every call — and reviewing recordings next week doesn’t change today’s number. Parley puts the manager in the moment.</div>
+  <div class="row" style="gap:16px;margin-top:32px">
+    <div class="card" style="flex:1"><div class="t">Whisper &amp; barge</div><div class="d">Drop into any live call, send a nudge only the rep hears, or take the call over to save a slipping deal.</div></div>
+    <div class="card" style="flex:1"><div class="t">Every call scored</div><div class="d">100% of calls graded automatically on opener, discovery, objections, and next step — not a 2% sample.</div></div>
+    <div class="card" style="flex:1"><div class="t">Ramp reps fast</div><div class="d">New closers sound like veterans from day one, and hit their first close weeks sooner.</div></div>
+  </div>
+  <div class="row" style="gap:40px;margin-top:40px">
+    <div class="stat"><div class="big grad">2 wks</div><div class="lbl">to ramp — down from 2 months</div></div>
+    <div class="stat"><div class="big grad">+34%</div><div class="lbl">objection → conversation rate</div></div>
+    <div class="stat"><div class="big grad">100%</div><div class="lbl">of calls scored</div></div>
+    <div class="stat"><div class="big grad">&lt;1s</div><div class="lbl">objection → on-screen line</div></div>
+  </div>
+  <div class="note" style="margin-top:20px">Illustrative outcomes — confirm against your own pilots.</div>
+</div><div class="foot"><span>Parley</span><span>09 · Coaching</span></div></section>
+
+<!-- 10 · AFTER THE CALL / SCORECARD -->
+<section class="slide grid"><div class="pad row" style="gap:44px">
+  <div class="col" style="flex:1;justify-content:center">
+    <div class="kick">After every call</div>
+    <div class="h2" style="margin:14px 0 16px">Every call makes the<br>next one <span class="grad">better.</span></div>
+    <div class="body" style="max-width:470px;font-size:16px">The second a call ends, Parley hands the rep a scorecard and a personalized report — what they nailed, what slipped, and the one thing to fix before the next dial. Reps self-coach on every call, instead of waiting for a Friday 1:1.</div>
+    <div class="col" style="gap:12px;margin-top:22px">
+      <div class="row center" style="gap:11px"><span class="dot"></span><span class="body" style="color:var(--ink)">A score on every call — opener, discovery, objection handling, next step</span></div>
+      <div class="row center" style="gap:11px"><span class="dot"></span><span class="body" style="color:var(--ink)">The exact moment that cost the deal, pulled from the transcript</span></div>
+      <div class="row center" style="gap:11px"><span class="dot"></span><span class="body" style="color:var(--ink)">One concrete fix for next time — from the same master playbook</span></div>
+    </div>
+  </div>
+  <div class="col" style="width:452px;align-self:center">
+    <div class="prod">
+      <div class="hd"><div class="row center" style="gap:9px"><span class="mn" style="color:var(--d-txt)">Call scorecard · #4,182</span></div><span class="mn">just now</span></div>
+      <div style="padding:16px 18px 20px">
+        <div class="row between center" style="margin-bottom:6px"><span class="side" style="margin:0;color:var(--d-mut)">Overall</span><span style="font:800 42px/1 var(--sans);color:var(--d-green)">82<span style="font-size:16px;color:var(--d-mut)">/100</span></span></div>
+        <div class="row between center" style="padding:10px 0;border-top:1px solid var(--d-line)"><span style="font:500 14px/1 var(--sans);color:var(--d-txt)">Opener</span><span class="mn" style="color:var(--d-green)">✓ strong</span></div>
+        <div class="row between center" style="padding:10px 0;border-top:1px solid var(--d-line)"><span style="font:500 14px/1 var(--sans);color:var(--d-txt)">Discovery</span><span class="mn" style="color:var(--d-green)">✓ 4 questions</span></div>
+        <div class="row between center" style="padding:10px 0;border-top:1px solid var(--d-line)"><span style="font:500 14px/1 var(--sans);color:var(--d-txt)">Objection handling</span><span class="mn" style="color:#FFC24B">⚠ dropped price</span></div>
+        <div class="row between center" style="padding:10px 0;border-top:1px solid var(--d-line)"><span style="font:500 14px/1 var(--sans);color:var(--d-txt)">Next step</span><span class="mn" style="color:var(--d-green)">✓ booked</span></div>
+        <div class="cardg" style="margin-top:14px"><div class="mn" style="color:var(--d-green);letter-spacing:.1em;margin-bottom:7px">▸ FIX BEFORE NEXT CALL</div><div style="font:500 13.5px/1.45 var(--sans);color:#d9fff2">On “too expensive,” you defended the price. Next time, isolate value vs. cost first — try the value-stack reframe.</div></div>
+      </div>
+    </div>
+  </div>
+</div><div class="foot"><span>Parley</span><span>10 · After the call</span></div></section>
+
+<!-- 9 · USE CASES -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Who it’s for</div>
+  <div class="h2" style="margin:14px 0 8px">Built for high-ticket phone sales.</div>
+  <div class="lead" style="max-width:820px">Anywhere a big commission rides on a live conversation and objections are the whole game.</div>
+  <div class="row" style="gap:16px;margin-top:30px">
+    <div class="card" style="flex:1"><div class="t">🏠 Real estate ISAs</div><div class="d">Seller and buyer calls off kvCORE &amp; FollowUpBoss. Handle “which agent?” and “we’re just looking” — book more appointments.</div></div>
+    <div class="card" style="flex:1"><div class="t">🎯 Coaching &amp; info products</div><div class="d">High-ticket offers ($5k–$50k). Hormozi-style value framing, live, on every setter and closer call.</div></div>
+    <div class="card" style="flex:1"><div class="t">💰 Mortgage &amp; finance</div><div class="d">Rate and payment objections, compliance-sensitive scripts, fast follow-up — handled in the moment.</div></div>
+  </div>
+  <div class="row" style="gap:16px;margin-top:16px">
+    <div class="card" style="flex:1"><div class="t">☀️ Solar &amp; home services</div><div class="d">In-home and phone closes with heavy price pushback and spouse objections.</div></div>
+    <div class="card" style="flex:1"><div class="t">🛡️ Insurance &amp; financial</div><div class="d">Trust-heavy, objection-heavy calls where the right question wins the appointment.</div></div>
+    <div class="card" style="flex:1"><div class="t">✨ Med-spa &amp; luxury</div><div class="d">Premium consults where framing value beats discounting every time.</div></div>
+  </div>
+</div><div class="foot"><span>Parley</span><span>11 · Use cases</span></div></section>
+
+<!-- 10 · THE MATH -->
+<section class="slide grid"><div class="pad row" style="gap:52px">
+  <div class="col" style="flex:1;justify-content:center">
+    <div class="kick">The math</div>
+    <div class="h2" style="margin:14px 0 16px">One saved deal pays<br>for the whole year.</div>
+    <div class="body" style="max-width:470px;font-size:16px">In high-ticket, the value of a single recovered objection dwarfs the cost of the tool. Parley doesn’t need to lift close rates much to be the best ROI on the floor.</div>
+    <div class="col" style="gap:12px;margin-top:24px">
+      <div class="row center" style="gap:11px"><span class="dot"></span><span class="body" style="color:var(--ink)">Avg. high-ticket commission: <b>$8,000</b></span></div>
+      <div class="row center" style="gap:11px"><span class="dot"></span><span class="body" style="color:var(--ink)">Parley: <b>$71</b>/rep/mo = <b>$852</b>/yr</span></div>
+      <div class="row center" style="gap:11px"><span class="dot"></span><span class="body" style="color:var(--ink)">Recover <b>one</b> extra deal a year → <b>9× payback</b>. Most reps recover one a <i>month</i>.</span></div>
+    </div>
+  </div>
+  <div class="col center" style="justify-content:center;width:440px">
+    <div class="card" style="width:100%;text-align:center;padding:36px 28px">
+      <div class="mono" style="color:var(--dim)">ONE RECOVERED DEAL</div>
+      <div class="h1" style="font-size:80px;margin:10px 0" ><span class="grad">$8,000</span></div>
+      <div class="mono" style="color:var(--dim);margin-bottom:22px">vs. $852 / rep / year</div>
+      <div style="height:1px;background:var(--line);margin:6px 0 22px"></div>
+      <div class="row between center"><div class="stat"><div class="big grad" style="font-size:40px">9×</div><div class="lbl">from one deal</div></div><div class="stat"><div class="big grad" style="font-size:40px">100×+</div><div class="lbl">realistic annual ROI</div></div></div>
+    </div>
+  </div>
+</div><div class="foot"><span>Parley</span><span>12 · The math</span></div></section>
+
+<!-- 11 · INTEGRATIONS & TRUST -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Fits your stack</div>
+  <div class="h2" style="margin:14px 0 8px">Works with what you already run.</div>
+  <div class="lead" style="max-width:820px">No new phone system. Parley rides your dialer, syncs your CRM, and keeps outbound compliant.</div>
+  <div class="row" style="gap:16px;margin-top:32px">
+    <div class="card" style="flex:1"><div class="t">🔌 Any dialer</div><div class="d">Aircall, RingCentral, kvCORE, Kixie, browser softphones — Parley listens at the audio layer.</div></div>
+    <div class="card" style="flex:1"><div class="t">🗂️ Your CRM</div><div class="d">FollowUpBoss, kvCORE, HubSpot &amp; more. Lead context in, call outcome auto-logged out.</div></div>
+    <div class="card" style="flex:1"><div class="t">🛡️ Compliant by default</div><div class="d">DNC scrub before the dial, consent capture, calling windows — TCPA-ready out of the box.</div></div>
+    <div class="card" style="flex:1"><div class="t">🔒 Secure</div><div class="d">Encrypted in transit &amp; at rest, per-tenant isolation, SOC 2 in progress.</div></div>
+  </div>
+  <div class="row" style="gap:10px;margin-top:38px"><span class="tag">Live in minutes</span><span class="tag">No rip-and-replace</span><span class="tag">Per-seat pricing</span><span class="tag">Free to try</span></div>
+</div><div class="foot"><span>Parley</span><span>13 · Integrations</span></div></section>
+
+<!-- 13 · PRICING -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Pricing</div>
+  <div class="h2" style="margin:14px 0 8px">Priced so one deal covers the year.</div>
+  <div class="lead" style="max-width:840px">Simple per-seat pricing. Start free, land a pod, expand the floor. Billed annually — save 20% vs. monthly.</div>
+  <div class="row" style="gap:16px;margin-top:30px;align-items:stretch">
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--mut)">STARTER</div><div class="h3" style="margin:8px 0;font-size:40px">$39<span style="font-size:15px;color:var(--dim);font-weight:500">/rep/mo</span></div><div class="d">For solo closers &amp; small pods.</div>
+      <div class="col" style="gap:8px;margin-top:14px;font:400 13.5px/1.4 var(--sans);color:var(--mut)"><div>✓ Live overlay + rebuttals</div><div>✓ Call-stage guidance</div><div>✓ Works over any dialer</div><div>✓ Auto call logging</div></div></div>
+    <div class="card" style="flex:1;border:1px solid rgba(11,163,122,.5);box-shadow:0 0 0 1px rgba(11,163,122,.28),var(--shadow);position:relative">
+      <div style="position:absolute;top:-11px;left:22px;background:linear-gradient(92deg,var(--green),var(--cyan));color:#fff;font:700 11px/1 var(--mono);letter-spacing:.06em;padding:5px 10px;border-radius:6px">MOST POPULAR</div>
+      <div class="mono" style="color:var(--green)">TEAM</div><div class="h3" style="margin:8px 0;font-size:40px">$71<span style="font-size:15px;color:var(--dim);font-weight:500">/rep/mo</span></div><div class="d">For teams that coach and ramp fast.</div>
+      <div class="col" style="gap:8px;margin-top:14px;font:400 13.5px/1.4 var(--sans);color:var(--mut)"><div>✓ Everything in Starter</div><div>✓ Whisper coaching + barge</div><div>✓ Scoring on 100% of calls</div><div>✓ CRM sync + manager dashboard</div></div></div>
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--mut)">SCALE</div><div class="h3" style="margin:8px 0;font-size:40px">Custom</div><div class="d">For BPOs &amp; large floors.</div>
+      <div class="col" style="gap:8px;margin-top:14px;font:400 13.5px/1.4 var(--sans);color:var(--mut)"><div>✓ Everything in Team</div><div>✓ TCPA / DNC controls + SSO</div><div>✓ Custom rebuttal training</div><div>✓ Dedicated CSM + SLA</div></div></div>
+  </div>
+  <div class="note" style="margin-top:22px">Per rep / month, billed annually. Free to start — no card. One recovered $8k deal covers a rep for ~9 years.</div>
+</div><div class="foot"><span>Parley</span><span>14 · Pricing</span></div></section>
+
+<!-- 12 · CLOSING -->
+<section class="slide grid"><div class="pad col between">
+  <div class="row between center"><div class="row center" style="gap:11px"><span class="dot"></span><span class="h3" style="font-size:24px">Parley</span></div><div class="mono">Product overview</div></div>
+  <div>
+    <div class="h1" style="font-size:66px">Every rep closes like<br>your <span class="grad">best closer.</span> Live.</div>
+    <div class="lead" style="margin-top:20px;max-width:720px">The masters’ playbook, in your rep’s ear, on every high-ticket call.</div>
+  </div>
+  <div class="row between center">
+    <div class="row" style="gap:10px"><span class="tag">[founder@parley.ai]</span><span class="tag">[parley.ai]</span><span class="tag">Book a demo</span></div>
+    <div class="mono" style="color:var(--dim)">Win the call while they’re still on the line.</div>
+  </div>
+</div><div class="foot"><span>Parley</span><span>15 · Let’s talk</span></div></section>
+
+</body></html>

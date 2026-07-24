@@ -39,11 +39,12 @@ start compliance parley-compliance-service  8083 "$APP_DB"
 start billing    parley-billing-service     8084 "$APP_DB"
 start crm        parley-crm-service         8082 "$APP_DB"
 start analytics  parley-analytics-service   8085 "$APP_DB"
+start telephony  parley-telephony-service   8087 "$APP_DB"
 start gateway    parley-gateway             8080 "$APP_DB"
 sleep 5
 
 echo "▶ health:"
-for p in 8080 8081 8082 8083 8084 8085 8086; do
+for p in 8080 8081 8082 8083 8084 8085 8086 8087; do
   printf "  :%s  %s\n" "$p" "$(curl -s "localhost:$p/health" || echo 'DOWN')"
 done
 

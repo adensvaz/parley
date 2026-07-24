@@ -44,11 +44,11 @@ export async function withOrg<T>(orgId: string, fn: (tx: Tx) => Promise<T>): Pro
 // Repositories — parameterized queries only (no string interpolation).
 export const repo = {
   calls: {
-    create: (tx: Tx, p: { id?: string; orgId: string; repId: string; modeId: string; leadId?: string }) =>
+    create: (tx: Tx, p: { id?: string; orgId: string; repId: string; modeId: string; leadId?: string; source?: string }) =>
       tx.query<{ id: string }>(
-        `INSERT INTO calls (id, org_id, rep_id, mode_id, lead_id)
-         VALUES (COALESCE($1::uuid, gen_random_uuid()), $2,$3,$4,$5) RETURNING id`,
-        [p.id ?? null, p.orgId, p.repId, p.modeId, p.leadId ?? null],
+        `INSERT INTO calls (id, org_id, rep_id, mode_id, lead_id, source)
+         VALUES (COALESCE($1::uuid, gen_random_uuid()), $2,$3,$4,$5, COALESCE($6,'desktop')) RETURNING id`,
+        [p.id ?? null, p.orgId, p.repId, p.modeId, p.leadId ?? null, p.source ?? null],
       ).then((r) => r.rows[0]),
     setOutcome: (tx: Tx, callId: string, p: { disposition: string; talkRatioRep: number; appointmentSet: boolean }) =>
       tx.query(
@@ -63,6 +63,12 @@ export const repo = {
         `INSERT INTO transcript_segments (org_id, call_id, speaker, content, is_final) VALUES ($1,$2,$3,$4,$5)`,
         [p.orgId, p.callId, p.speaker, p.content, p.isFinal],
       ),
+    // Ordered final transcript for a call — the input to post-call scoring.
+    forCall: (tx: Tx, callId: string) =>
+      tx.query<{ speaker: string; content: string; ts: string }>(
+        `SELECT speaker, content, ts FROM transcript_segments
+         WHERE call_id=$1 AND is_final ORDER BY ts ASC`, [callId],
+      ).then((r) => r.rows),
   },
   events: {
     add: (tx: Tx, p: { orgId: string; callId: string; kind: string; payload: unknown }) =>
@@ -152,12 +158,51 @@ export const repo = {
            objections_handled=EXCLUDED.objections_handled, appointment_set=EXCLUDED.appointment_set`,
         [p.callId, p.orgId, p.repId, p.score, p.talkRatio, p.objectionsHandled, p.appointmentSet],
       ),
+    // Rich post-call report — extends the scorecard row with the stage breakdown, the one fix,
+    // and transcript-anchored moments (jsonb). Upserted alongside the numeric score.
+    upsertReport: (tx: Tx, p: { callId: string; orgId: string; repId: string; score: number; talkRatio: number; objectionsHandled: number; appointmentSet: boolean; stages: unknown; fix: unknown; moments: unknown }) =>
+      tx.query(
+        `INSERT INTO scorecards (call_id, org_id, rep_id, score, talk_ratio, objections_handled, appointment_set, stages, fix, moments)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         ON CONFLICT (call_id) DO UPDATE SET score=EXCLUDED.score, talk_ratio=EXCLUDED.talk_ratio,
+           objections_handled=EXCLUDED.objections_handled, appointment_set=EXCLUDED.appointment_set,
+           stages=EXCLUDED.stages, fix=EXCLUDED.fix, moments=EXCLUDED.moments`,
+        [p.callId, p.orgId, p.repId, p.score, p.talkRatio, p.objectionsHandled, p.appointmentSet,
+         JSON.stringify(p.stages), p.fix == null ? null : JSON.stringify(p.fix), JSON.stringify(p.moments)],
+      ),
+    // The rep's own scorecard for one call (drives the /report view + call.scored payload).
+    get: (tx: Tx, callId: string) =>
+      tx.query(
+        `SELECT call_id, rep_id, score, talk_ratio, objections_handled, appointment_set, stages, fix, moments
+         FROM scorecards WHERE call_id=$1`, [callId],
+      ).then((r) => r.rows[0] ?? null),
     refreshDaily: (tx: Tx) => tx.query(`SELECT refresh_rep_daily_stats()`),
     dashboard: (tx: Tx, orgId: string) =>
       tx.query(
         `SELECT rep_id, day, calls, avg_score, appts FROM rep_daily_stats
          WHERE org_id=$1 ORDER BY day DESC, rep_id LIMIT 200`, [orgId],
       ).then((r) => r.rows),
+  },
+
+  // Telephony — Parley virtual numbers mapped to an org/rep. `resolve` runs BEFORE tenant context
+  // is known (inbound call), so it goes through the SECURITY DEFINER function; everything else is
+  // tenant-scoped under withOrg + RLS.
+  numbers: {
+    provision: (tx: Tx, p: { e164: string; orgId: string; repId?: string; provider?: string; source?: string }) =>
+      tx.query(
+        `INSERT INTO org_numbers (e164, org_id, rep_id, provider, source) VALUES ($1,$2,$3,COALESCE($4,'twilio'),COALESCE($5,'pstn'))
+         ON CONFLICT (e164) DO UPDATE SET org_id=EXCLUDED.org_id, rep_id=EXCLUDED.rep_id, active=true`,
+        [p.e164, p.orgId, p.repId ?? null, p.provider ?? null, p.source ?? null],
+      ),
+    listForOrg: (tx: Tx, orgId: string) =>
+      tx.query<{ e164: string; rep_id: string | null; provider: string; source: string }>(
+        `SELECT e164, rep_id, provider, source FROM org_numbers WHERE org_id=$1 AND active ORDER BY created_at DESC`, [orgId],
+      ).then((r) => r.rows),
+    /** Inbound number → tenant, pre-auth. Uses the SECURITY DEFINER probe (no org context yet). */
+    resolve: (c: Tx, e164: string) =>
+      c.query<{ org_id: string; rep_id: string | null; source: string }>(
+        `SELECT org_id, rep_id, source FROM telephony_resolve($1)`, [e164],
+      ).then((r) => r.rows[0] ?? null),
   },
   dnc: {
     /** O(log n) index-only probe against the per-tenant DNC list. */

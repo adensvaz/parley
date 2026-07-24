@@ -6,10 +6,11 @@
 import Fastify from "fastify";
 import { WebSocketServer, type WebSocket } from "ws";
 import { connect, JSONCodec, type NatsConnection } from "nats";
-import { SUBJECTS, type Envelope, type CallStarted, type CallTranscript, type CallEnded, type CallCard } from "@parley/contracts";
+import { SUBJECTS, type Envelope, type CallStarted, type CallTranscript, type CallEnded, type CallCard, type CallAffect } from "@parley/contracts";
 import { randomUUID } from "node:crypto";
 import { authenticate, type AuthContext } from "./auth.js";
 import { createTranscriber, type Speaker } from "./stt.js";
+import { createAffectEngine } from "./affect.js";
 
 const jc = JSONCodec();
 let nc: NatsConnection;
@@ -28,9 +29,14 @@ function handleConnection(ws: WebSocket, ctx: AuthContext) {
   const send = (obj: unknown) => ws.readyState === ws.OPEN && ws.send(JSON.stringify(obj));
 
   // STT: transcripts go to the bus (for copilot) AND straight to the desktop (live feed).
+  // Affect engine: reads the PROSPECT's tone (model ensemble + DSP) AND the rep↔prospect vocal
+  // resonance. Both legs feed it; we emit on finished prospect utterances so copilot fuses tone+words.
+  const affect = createAffectEngine({ encoding: "linear16", sampleRate: 16000 });
   const stt = createTranscriber((speaker, text, isFinal) => {
     publish<CallTranscript>(SUBJECTS.callTranscript, ctx.orgId, traceId, { callId, speaker, text, isFinal });
     send({ type: "transcript", speaker, text, isFinal, ts: Date.now() });
+    if (speaker === "prospect" && isFinal)
+      void affect.read().then((a) => { if (a) publish<CallAffect>(SUBJECTS.callAffect, ctx.orgId, traceId, { callId, speaker: "prospect", affect: a }); });
   });
 
   // Relay copilot cards for THIS call back to the desktop.
@@ -67,6 +73,7 @@ function handleConnection(ws: WebSocket, ctx: AuthContext) {
       void startCall(msg);
     } else if (msg.type === "audio" && (msg.speaker === "rep" || msg.speaker === "prospect")) {
       stt.push(msg.speaker as Speaker, msg.pcm16);
+      affect.push(msg.speaker as Speaker, msg.pcm16); // both legs → tone + vocal-resonance
     } else if (msg.type === "transcript" && (msg.speaker === "rep" || msg.speaker === "prospect")) {
       // Practice / no-STT mode: client-injected transcript, forwarded to the bus like an STT result.
       publish<CallTranscript>(SUBJECTS.callTranscript, ctx.orgId, traceId, { callId, speaker: msg.speaker, text: msg.text ?? "", isFinal: msg.isFinal !== false });

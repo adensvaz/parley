@@ -3,20 +3,19 @@
 // Serves /dashboard (HTML) and /api/stats (JSON) for the manager view.
 import Fastify from "fastify";
 import { connect, JSONCodec, type NatsConnection } from "nats";
-import { SUBJECTS, type Envelope, type CallEnded } from "@parley/contracts";
+import { SUBJECTS, type Envelope, type CallEnded, type CallScored, type VoiceBehaviour } from "@parley/contracts";
 import { withOrg, withConn, repo } from "@parley/db";
 import { DASHBOARD_HTML } from "./dashboard.js";
+import { buildScorecard } from "./scorecard.js";
+import { REPORT_HTML } from "./report.js";
 
 const jc = JSONCodec();
+let nc: NatsConnection;
+const newId = () => `${Date.now().toString(36)}-${Math.round(Math.random() * 1e9).toString(36)}`;
 
-// 0–100 call score: appointment is king; reward a healthy talk balance and objections handled.
-function score(p: { talkRatioRep: number; appointmentSet: boolean; objectionsHandled: number }): number {
-  let s = 40;
-  if (p.appointmentSet) s += 40;
-  if (p.talkRatioRep >= 0.4 && p.talkRatioRep <= 0.6) s += 15; // ideal listen/talk band
-  s += Math.min(15, p.objectionsHandled * 5);
-  return Math.max(0, Math.min(100, s));
-}
+// Latest Voice Behaviour Analysis per call (premium), fed by call.behaviour and folded into the
+// scorecard on call.ended. Evicted after scoring so the map can't grow unbounded.
+const behaviourByCall = new Map<string, VoiceBehaviour>();
 
 // Coalesce MV refreshes so a burst of call.ended events triggers one refresh, not N.
 let refreshTimer: NodeJS.Timeout | null = null;
@@ -28,31 +27,48 @@ function scheduleRefresh() {
   }, 1000);
 }
 
+// call.ended → read the transcript → build the rich scorecard → persist → announce call.scored.
+// call.scored is what the desktop/web listens for to pop the rep's report the moment the call ends.
 async function onCallEnded(e: Envelope<CallEnded>) {
   const { callId, repId, talkRatioRep, appointmentSet } = e.data;
-  await withOrg(e.orgId, async (tx) => {
+  const sc = await withOrg(e.orgId, async (tx) => {
     const objectionsHandled = await repo.events.countObjections(tx, callId);
-    await repo.scorecards.upsert(tx, {
-      callId, orgId: e.orgId, repId,
-      score: score({ talkRatioRep, appointmentSet, objectionsHandled }),
-      talkRatio: talkRatioRep, objectionsHandled, appointmentSet,
+    const transcript = await repo.transcript.forCall(tx, callId);
+    const startedAtMs = transcript.length ? Date.parse(transcript[0].ts) : Date.parse(e.occurredAt);
+    const behaviour = behaviourByCall.get(callId);
+    const card = buildScorecard({ callId, repId, transcript, talkRatioRep, appointmentSet, objectionsHandled, startedAtMs, behaviour });
+    await repo.scorecards.upsertReport(tx, {
+      callId, orgId: e.orgId, repId, score: card.score, talkRatio: talkRatioRep,
+      objectionsHandled, appointmentSet, stages: card.stages, fix: card.fix, moments: card.moments,
     });
+    return card;
   });
+  // announce the finished scorecard so the rep gets it live (idempotent on callId downstream).
+  const env: Envelope<CallScored> = { id: newId(), subject: SUBJECTS.callScored, orgId: e.orgId, traceId: e.traceId, occurredAt: new Date().toISOString(), data: sc };
+  nc.publish(SUBJECTS.callScored, jc.encode(env));
+  behaviourByCall.delete(callId);
   scheduleRefresh();
 }
 
 async function main() {
-  const nc: NatsConnection = await connect({ servers: process.env.NATS_URL || "nats://localhost:4222" });
+  nc = await connect({ servers: process.env.NATS_URL || "nats://localhost:4222" });
   (async () => {
     for await (const m of nc.subscribe(SUBJECTS.callEnded, { queue: "analytics" })) {
       try { await onCallEnded(jc.decode(m.data) as Envelope<CallEnded>); } catch (e) { console.error("[scorecard]", e); }
+    }
+  })();
+  // Voice Behaviour Analysis stream → keep the latest profile per call for the scorecard.
+  (async () => {
+    for await (const m of nc.subscribe(SUBJECTS.callBehaviour, { queue: "analytics" })) {
+      const b = (jc.decode(m.data) as Envelope<VoiceBehaviour>).data;
+      if (b?.callId) behaviourByCall.set(b.callId, b);
     }
   })();
 
   const app = Fastify({ logger: true });
   app.get("/health", async () => ({ ok: true, service: "parley-analytics-service" }));
 
-  // Dashboard data (org derived from auth in prod; query param here for the internal API).
+  // Manager dashboard data (org derived from auth in prod; query param here for the internal API).
   app.get<{ Querystring: { orgId: string } }>("/api/stats", async (req) => {
     const orgId = req.query.orgId;
     if (!orgId) return [];
@@ -61,6 +77,21 @@ async function main() {
 
   app.get<{ Querystring: { orgId: string } }>("/dashboard", async (req, reply) => {
     reply.type("text/html").send(DASHBOARD_HTML(req.query.orgId ?? ""));
+  });
+
+  // The rep's own post-call report — JSON for the desktop/web, HTML for a shareable link.
+  app.get<{ Params: { callId: string }; Querystring: { orgId: string } }>("/api/scorecard/:callId", async (req, reply) => {
+    const row = await withOrg(req.query.orgId, (tx) => repo.scorecards.get(tx, req.params.callId));
+    if (!row) return reply.code(404).send({ error: "not_found" });
+    return row;
+  });
+  app.get<{ Params: { callId: string }; Querystring: { orgId: string } }>("/report/:callId", async (req, reply) => {
+    const row: any = await withOrg(req.query.orgId, (tx) => repo.scorecards.get(tx, req.params.callId));
+    if (!row) return reply.code(404).type("text/html").send("<h1>Scorecard not found</h1>");
+    reply.type("text/html").send(REPORT_HTML({
+      callId: row.call_id, repId: row.rep_id, score: row.score, stages: row.stages ?? [], fix: row.fix,
+      moments: row.moments ?? [], talkRatioRep: row.talk_ratio, objectionsHandled: row.objections_handled, appointmentSet: row.appointment_set,
+    }));
   });
 
   await app.listen({ port: Number(process.env.PORT) || 8085, host: "0.0.0.0" });
