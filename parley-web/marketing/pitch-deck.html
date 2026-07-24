@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Parley — Seed Deck</title>
+<style>
+:root{
+  --bg:#06080F;--bg2:#0A0F1E;--panel:#0F1526;--panel2:#141C31;
+  --line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.15);
+  --txt:#EEF1FA;--mut:#95A0BC;--dim:#616C8A;
+  --green:#2BFFB0;--cyan:#4FE3FF;--blue:#6EA8FF;--red:#FF4D6D;--amber:#FFC24B;--violet:#A77BFF;
+  --glowG:0 0 30px rgba(43,255,176,.35);
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,"Helvetica Neue",Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html,body{background:var(--bg);color:var(--txt);font-family:var(--sans)}
+@page{size:1280px 720px;margin:0}
+.slide{position:relative;width:1280px;height:720px;overflow:hidden;page-break-after:always;
+  background:radial-gradient(1100px 640px at 82% -12%,rgba(43,255,176,.10),transparent 60%),
+             radial-gradient(900px 640px at 4% 108%,rgba(110,168,255,.09),transparent 55%),
+             linear-gradient(180deg,var(--bg2),var(--bg))}
+.slide:last-child{page-break-after:auto}
+.grid::after{content:"";position:absolute;inset:0;opacity:.35;pointer-events:none;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:46px 46px;-webkit-mask-image:radial-gradient(1000px 560px at 50% 40%,#000,transparent 82%)}
+.pad{position:absolute;inset:0;padding:66px 74px;z-index:1}
+.kick{font:600 13px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--green)}
+.h1{font:800 82px/.98 var(--sans);letter-spacing:-.03em}
+.h2{font:800 48px/1.03 var(--sans);letter-spacing:-.025em}
+.h3{font:800 30px/1.1 var(--sans);letter-spacing:-.02em}
+.lead{font:400 22px/1.45 var(--sans);color:var(--mut)}
+.body{font:400 17px/1.5 var(--sans);color:var(--mut)}
+.grad{background:linear-gradient(92deg,var(--green),var(--cyan) 55%,var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent}
+.mono{font:500 13px/1.5 var(--mono);color:var(--mut)}
+.row{display:flex}.col{display:flex;flex-direction:column}.between{justify-content:space-between}.center{align-items:center}
+.pill{display:inline-flex;align-items:center;gap:9px;padding:8px 15px;border:1px solid var(--line2);border-radius:999px;
+  background:rgba(43,255,176,.07);font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--green)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+.dot.red{background:var(--red);box-shadow:0 0 10px var(--red)}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:16px;padding:22px}
+.card .t{font:800 19px/1.2 var(--sans);margin-bottom:8px}
+.card .d{font:400 14.5px/1.5 var(--sans);color:var(--mut)}
+.foot{position:absolute;left:74px;right:74px;bottom:26px;display:flex;justify-content:space-between;z-index:1;
+  font:600 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.tag{display:inline-block;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.03);font:600 12px/1 var(--mono);color:var(--mut)}
+.stat .big{font:800 52px/1 var(--sans)}.stat .lbl{font:500 13px/1.4 var(--mono);color:var(--dim);margin-top:8px}
+.chip{padding:5px 11px;border-radius:7px;font:700 11px/1 var(--mono);letter-spacing:.06em}
+table.cmp{width:100%;border-collapse:collapse}
+table.cmp th,table.cmp td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left;font:500 15px/1.3 var(--sans)}
+table.cmp th{font:700 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+table.cmp .yes{color:var(--green);font-weight:800}.cmp .no{color:var(--dim)}
+.cmp .colp{background:rgba(43,255,176,.06)}
+.bars{display:flex;align-items:flex-end;gap:26px;height:230px}
+.bar{width:120px;border-radius:8px 8px 0 0;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line2);position:relative}
+.bar.gr{background:linear-gradient(180deg,rgba(43,255,176,.5),rgba(43,255,176,.12));border-color:rgba(43,255,176,.5)}
+.bar .v{position:absolute;top:-30px;left:0;right:0;text-align:center;font:800 18px/1 var(--sans)}
+.bar .x{position:absolute;bottom:-30px;left:0;right:0;text-align:center;font:600 12px/1 var(--mono);color:var(--dim)}
+.tam{position:relative;width:340px;height:340px}
+.tam .ring{position:absolute;border-radius:50%;display:flex;align-items:flex-start;justify-content:center;font:700 12px/1 var(--mono);color:var(--txt);padding-top:10px}
+.note{font:500 11px/1.4 var(--mono);color:var(--dim)}
+.line{height:1px;background:var(--line)}
+</style></head><body>
+
+<!-- 1 · COVER -->
+<section class="slide grid"><div class="pad col between">
+  <div class="row between center"><div class="row center" style="gap:11px"><span class="dot"></span><span class="h3" style="font-size:26px">Parley</span></div><div class="mono">Seed round · Confidential</div></div>
+  <div>
+    <div class="pill"><span class="dot"></span>Live on the call</div>
+    <div class="h1" style="margin:22px 0 18px">The real-time copilot<br>for <span class="grad">cold calls.</span></div>
+    <div class="lead" style="max-width:820px">Parley listens to both sides of a live sales call and whispers the perfect next line to the rep — in under a second, on any dialer. Every rep sells like your best rep.</div>
+  </div>
+  <div class="row" style="gap:10px"><span class="tag">Real-time, not post-call</span><span class="tag">B2B SaaS · per-seat</span><span class="tag">Sales / SDR teams</span></div>
+</div><div class="foot"><span>Parley, Inc.</span><span>01</span></div></section>
+
+<!-- 2 · PROBLEM -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">The problem</div>
+  <div class="h2" style="margin:14px 0 10px;max-width:900px">Cold calls aren’t lost in the pitch.<br>They’re lost in <span class="grad">the pause.</span></div>
+  <div class="lead" style="max-width:840px">The moment a prospect pushes back, the rep freezes. Three seconds of dead air, a weak “thanks for your time,” and the deal is gone. Every sales org fights the same four problems:</div>
+  <div class="row" style="gap:16px;margin-top:34px">
+    <div class="card" style="flex:1"><div class="t" style="color:var(--red)">Reps freeze</div><div class="d">The average rep fumbles the objection they’ve heard 1,000 times. Talent doesn’t transfer through a script deck.</div></div>
+    <div class="card" style="flex:1"><div class="t" style="color:var(--red)">Ramp is brutal</div><div class="d">New reps take ~2–3 months to get productive. Most churn before they do. That’s pure burned payroll.</div></div>
+    <div class="card" style="flex:1"><div class="t" style="color:var(--red)">Coaching doesn’t scale</div><div class="d">Managers hear ~2% of calls. Feedback lands days later, after the same mistake is made 100 more times.</div></div>
+    <div class="card" style="flex:1"><div class="t" style="color:var(--red)">Tools grade too late</div><div class="d">Gong-style analytics tell you why you lost — after the call is over and the deal is dead.</div></div>
+  </div>
+  <div class="note" style="margin-top:26px">Inside sales runs on volume × conversion. Both break at exactly the moment help is impossible to deliver: mid-call.</div>
+</div><div class="foot"><span>Parley — Seed</span><span>02 · Problem</span></div></section>
+
+<!-- 3 · SOLUTION -->
+<section class="slide grid"><div class="pad row" style="gap:44px">
+  <div class="col" style="flex:1.05;justify-content:center">
+    <div class="kick">The solution</div>
+    <div class="h2" style="margin:14px 0 16px">A copilot that’s <span class="grad">in the call.</span></div>
+    <div class="lead" style="max-width:520px">Parley hears both sides of the live call, reads the moment, and puts the exact rebuttal or next line on a discreet overlay only the rep can see — in under a second.</div>
+    <div class="col" style="gap:14px;margin-top:26px">
+      <div class="row center" style="gap:12px"><span class="chip" style="background:rgba(43,255,176,.12);color:var(--green)">01</span><span class="body" style="color:var(--txt)">Hears both sides — over any dialer, invisible to the prospect</span></div>
+      <div class="row center" style="gap:12px"><span class="chip" style="background:rgba(79,227,255,.12);color:var(--cyan)">02</span><span class="body" style="color:var(--txt)">Detects the stage & objection the instant it lands</span></div>
+      <div class="row center" style="gap:12px"><span class="chip" style="background:rgba(110,168,255,.12);color:var(--blue)">03</span><span class="body" style="color:var(--txt)">Whispers the winning line — trained on your best reps</span></div>
+    </div>
+  </div>
+  <div class="col" style="width:452px;align-self:center">
+    <div class="card" style="padding:0;overflow:hidden;border-color:var(--line2)">
+      <div class="row between center" style="padding:14px 18px;border-bottom:1px solid var(--line)"><div class="row center" style="gap:9px"><span class="dot red"></span><span class="mono" style="color:var(--txt)">Live call · 02:14</span></div><span class="mono" style="color:var(--dim)">discreet overlay</span></div>
+      <div style="padding:16px 18px 20px">
+        <div class="mono" style="color:var(--blue);letter-spacing:.14em;margin-bottom:7px">PROSPECT</div>
+        <div style="background:rgba(110,168,255,.12);border:1px solid rgba(110,168,255,.32);border-radius:14px;border-bottom-left-radius:4px;padding:12px 15px;font:500 15px/1.45 var(--sans);color:#dbe7ff">“We already use a competitor. Not looking to switch.”</div>
+        <div class="mono" style="color:var(--green);letter-spacing:.14em;margin:14px 0 7px">PARLEY</div>
+        <div style="background:linear-gradient(180deg,rgba(43,255,176,.13),rgba(43,255,176,.04));border:1px solid rgba(43,255,176,.42);box-shadow:var(--glowG);border-radius:15px;padding:15px 16px">
+          <div class="mono" style="color:var(--red);letter-spacing:.1em;margin-bottom:8px">● OBJECTION · INCUMBENT</div>
+          <div style="font:500 14.5px/1.45 var(--sans);color:#d9fff2">“Totally fair — most of our best customers said that too, right before they saw the one thing their tool couldn’t do. Worth 9 minutes?”</div>
+          <div class="mono" style="color:var(--dim);margin-top:9px">▸ book the 9-min · don’t pitch</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><div class="foot"><span>Parley — Seed</span><span>03 · Solution</span></div></section>
+
+<!-- 4 · HOW IT WORKS -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Product</div>
+  <div class="h2" style="margin:14px 0 8px">One loop. Under a second. Every call.</div>
+  <div class="lead" style="max-width:820px">No bot on the line, no new dialer, no rip-and-replace. Parley rides along and delivers the moment that decides the call.</div>
+  <div class="row" style="gap:18px;margin-top:40px">
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--blue)">01 · CAPTURE</div><div class="t" style="margin-top:12px">Hears both sides</div><div class="d">Rep + prospect audio, streamed to real-time transcription over any softphone.</div></div>
+    <div class="col center" style="justify-content:center;color:var(--dim);font-size:26px">→</div>
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--green)">02 · UNDERSTAND</div><div class="t" style="margin-top:12px">Reads the moment</div><div class="d">Tracks the call stage and classifies the objection the instant it lands.</div></div>
+    <div class="col center" style="justify-content:center;color:var(--dim);font-size:26px">→</div>
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--cyan)">03 · WHISPER</div><div class="t" style="margin-top:12px">Hands over the line</div><div class="d">The right rebuttal or next step, rendered to the rep’s overlay. One tap logs what worked.</div></div>
+  </div>
+  <div class="row" style="gap:10px;margin-top:34px"><span class="tag">Any dialer / softphone</span><span class="tag">CRM sync — FollowUpBoss · kvCORE · HubSpot</span><span class="tag">TCPA / DNC built in</span><span class="tag">Call scoring on 100% of calls</span></div>
+</div><div class="foot"><span>Parley — Seed</span><span>04 · Product</span></div></section>
+
+<!-- 5 · WHY NOW -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Why now</div>
+  <div class="h2" style="margin:14px 0 8px">Sub-second in-call AI just became <span class="grad">possible.</span></div>
+  <div class="lead" style="max-width:840px">The three things real-time coaching needed all crossed the line in the last 24 months.</div>
+  <div class="row" style="gap:18px;margin-top:36px">
+    <div class="card" style="flex:1"><div class="h3" style="font-size:22px;color:var(--green)">Fast, cheap STT</div><div class="d" style="margin-top:10px">Streaming speech-to-text (Deepgram-class) now transcribes both sides live for pennies — the input layer is finally real-time.</div></div>
+    <div class="card" style="flex:1"><div class="h3" style="font-size:22px;color:var(--cyan)">LLMs at latency</div><div class="d" style="margin-top:10px">Modern models classify an objection and retrieve the right line in &lt;1s — fast enough to matter mid-sentence, not next week.</div></div>
+    <div class="card" style="flex:1"><div class="h3" style="font-size:22px;color:var(--blue)">Sales went remote</div><div class="d" style="margin-top:10px">Reps dial from softphones on laptops. The overlay has a screen to live on — and managers can’t walk the floor anymore.</div></div>
+  </div>
+  <div class="row center" style="gap:14px;margin-top:34px"><span class="pill" style="color:var(--amber);border-color:rgba(255,194,75,.4);background:rgba(255,194,75,.06)">The wedge</span><span class="lead" style="font-size:18px">Incumbents (Gong, Chorus) were built pre-latency — architected for <b style="color:var(--txt)">post-call</b>. Real-time is a new category, not a feature they can bolt on.</span></div>
+</div><div class="foot"><span>Parley — Seed</span><span>05 · Why now</span></div></section>
+
+<!-- 6 · MARKET -->
+<section class="slide grid"><div class="pad row" style="gap:56px">
+  <div class="col" style="flex:1;justify-content:center">
+    <div class="kick">Market</div>
+    <div class="h2" style="margin:14px 0 16px">A big, funded,<br>growing wedge.</div>
+    <div class="body" style="max-width:460px;font-size:16px">Revenue intelligence and sales-enablement software is already a multi-billion-dollar category (Gong last valued at ~$7.25B). We enter through the underserved, high-volume outbound segment and expand across the floor.</div>
+    <div class="col" style="gap:16px;margin-top:26px">
+      <div class="row center" style="gap:12px"><span class="chip" style="background:rgba(110,168,255,.14);color:var(--blue)">TAM</span><span class="body" style="color:var(--txt)"><b>$30B+</b> — global sales tech & conversation intelligence</span></div>
+      <div class="row center" style="gap:12px"><span class="chip" style="background:rgba(79,227,255,.14);color:var(--cyan)">SAM</span><span class="body" style="color:var(--txt)"><b>$8B</b> — ~10M inside-sales / SDR seats × real-time coaching</span></div>
+      <div class="row center" style="gap:12px"><span class="chip" style="background:rgba(43,255,176,.14);color:var(--green)">SOM</span><span class="body" style="color:var(--txt)"><b>$400M</b> — beachhead: high-volume outbound in NA</span></div>
+    </div>
+    <div class="note" style="margin-top:22px">Bottom-up: 1M seats × ~$70/rep/mo ≈ $840M ARR at the SAM edge. Illustrative — refine with your data.</div>
+  </div>
+  <div class="col center" style="justify-content:center;width:420px">
+    <div class="tam">
+      <div class="ring" style="inset:0;background:radial-gradient(circle,rgba(110,168,255,.14),rgba(110,168,255,.05));border:1px solid rgba(110,168,255,.4)">TAM · $30B+</div>
+      <div class="ring" style="inset:66px;background:radial-gradient(circle,rgba(79,227,255,.16),rgba(79,227,255,.05));border:1px solid rgba(79,227,255,.45)">SAM · $8B</div>
+      <div class="ring" style="inset:150px;background:radial-gradient(circle,rgba(43,255,176,.22),rgba(43,255,176,.06));border:1px solid rgba(43,255,176,.55);box-shadow:var(--glowG);align-items:center;padding-top:0">SOM · $400M</div>
+    </div>
+  </div>
+</div><div class="foot"><span>Parley — Seed</span><span>06 · Market</span></div></section>
+
+<!-- 7 · COMPETITION -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Why we win</div>
+  <div class="h2" style="margin:14px 0 18px">Real-time, SDR-first, live in minutes.</div>
+  <table class="cmp">
+    <tr><th style="width:34%"></th><th class="colp" style="color:var(--green)">Parley</th><th>Gong / Chorus</th><th>Balto / Cresta</th><th>Static battlecards</th></tr>
+    <tr><td>Helps <b>during</b> the live call</td><td class="yes colp">✓</td><td class="no">—</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>Real-time objection rebuttals</td><td class="yes colp">✓</td><td class="no">—</td><td>partial</td><td class="no">—</td></tr>
+    <tr><td>Works over any dialer, live in minutes</td><td class="yes colp">✓</td><td>varies</td><td class="no">heavy rollout</td><td class="yes">✓</td></tr>
+    <tr><td>Built for outbound SDR / inside sales</td><td class="yes colp">✓</td><td class="no">rev-intel</td><td class="no">contact center</td><td class="no">—</td></tr>
+    <tr><td>TCPA / DNC compliance built in</td><td class="yes colp">✓</td><td class="no">—</td><td>varies</td><td class="no">—</td></tr>
+    <tr><td>Per-seat, self-serve pricing</td><td class="yes colp">✓</td><td class="no">enterprise</td><td class="no">enterprise</td><td class="yes">✓</td></tr>
+  </table>
+  <div class="row center" style="gap:12px;margin-top:26px"><span class="pill">Moat</span><span class="body" style="font-size:16px;color:var(--txt)">A rebuttal library that compounds with every logged call — the more your team dials, the sharper Parley gets. Data network effect per customer.</span></div>
+</div><div class="foot"><span>Parley — Seed</span><span>07 · Competition</span></div></section>
+
+<!-- 8 · BUSINESS MODEL -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Business model</div>
+  <div class="h2" style="margin:14px 0 8px">Per-seat SaaS. Land a pod, expand the floor.</div>
+  <div class="lead" style="max-width:820px">Self-serve entry, sales-assisted expansion. Priced per rep with transparent usage — one saved deal covers a rep’s year.</div>
+  <div class="row" style="gap:18px;margin-top:34px">
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--mut)">STARTER</div><div class="h3" style="margin:10px 0;font-size:34px">$39<span style="font-size:15px;color:var(--dim)">/rep/mo</span></div><div class="d">Solo closers & small pods. Overlay + rebuttals. Self-serve.</div></div>
+    <div class="card" style="flex:1;border-color:rgba(43,255,176,.45);box-shadow:var(--glowG)"><div class="mono" style="color:var(--green)">TEAM · popular</div><div class="h3" style="margin:10px 0;font-size:34px">$71<span style="font-size:15px;color:var(--dim)">/rep/mo</span></div><div class="d">Coaching, scoring, CRM sync, manager dashboard.</div></div>
+    <div class="card" style="flex:1"><div class="mono" style="color:var(--mut)">SCALE</div><div class="h3" style="margin:10px 0;font-size:34px">Custom</div><div class="d">BPOs & large floors. Compliance, SSO, custom training, SLA.</div></div>
+  </div>
+  <div class="row" style="gap:40px;margin-top:36px">
+    <div class="stat"><div class="big grad">~85%</div><div class="lbl">target gross margin</div></div>
+    <div class="stat"><div class="big grad">&lt;$X</div><div class="lbl">CAC (PLG-led)</div></div>
+    <div class="stat"><div class="big grad">120%+</div><div class="lbl">target net revenue retention</div></div>
+    <div class="stat"><div class="big grad">Land→expand</div><div class="lbl">pod → team → floor</div></div>
+  </div>
+  <div class="note" style="margin-top:22px">Illustrative unit economics — replace with your live metrics.</div>
+</div><div class="foot"><span>Parley — Seed</span><span>08 · Model</span></div></section>
+
+<!-- 9 · TRACTION / GTM -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Traction &amp; go-to-market</div>
+  <div class="h2" style="margin:14px 0 18px">Early signal from teams who live on the phone.</div>
+  <div class="row" style="gap:18px">
+    <div class="card" style="flex:1;text-align:center"><div class="stat"><div class="big grad">2 wks</div><div class="lbl">ramp, down from ~2 months</div></div></div>
+    <div class="card" style="flex:1;text-align:center"><div class="stat"><div class="big grad">+34%</div><div class="lbl">objection→conversation rate</div></div></div>
+    <div class="card" style="flex:1;text-align:center"><div class="stat"><div class="big grad">100%</div><div class="lbl">of calls scored, not sampled</div></div></div>
+    <div class="card" style="flex:1;text-align:center"><div class="stat"><div class="big grad">&lt;1s</div><div class="lbl">objection → on-screen line</div></div></div>
+  </div>
+  <div class="row" style="gap:18px;margin-top:20px">
+    <div class="card" style="flex:1"><div class="t">Beachhead motion</div><div class="d">PLG free tier → in-call “aha” on the first dial → pod converts → sales-assisted expansion to the floor. Real-estate ISAs (kvCORE/FollowUpBoss) + SDR teams first.</div></div>
+    <div class="card" style="flex:1"><div class="t">Distribution</div><div class="d">Objection-library & “real-time vs post-call” content engine, dialer/CRM marketplaces, and a shareable in-product Objection Arcade as a top-of-funnel loop.</div></div>
+  </div>
+  <div class="note" style="margin-top:22px">Metrics from early pilots — replace with your current logos, ARR, and pipeline before sending.</div>
+</div><div class="foot"><span>Parley — Seed</span><span>09 · Traction</span></div></section>
+
+<!-- 10 · FINANCIALS -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Plan</div>
+  <div class="h2" style="margin:14px 0 8px">Path to $10M ARR.</div>
+  <div class="lead" style="max-width:760px">Seat-based, expansion-led. Illustrative ramp — replace with your model.</div>
+  <div class="row between" style="align-items:flex-end;margin-top:60px;padding:0 40px">
+    <div class="bars">
+      <div class="bar" style="height:36px"><span class="v" style="color:var(--mut)">$0.3M</span><span class="x">Y1</span></div>
+      <div class="bar" style="height:78px"><span class="v" style="color:var(--mut)">$1.2M</span><span class="x">Y2</span></div>
+      <div class="bar gr" style="height:150px"><span class="v">$4M</span><span class="x">Y3</span></div>
+      <div class="bar gr" style="height:210px"><span class="v">$10M</span><span class="x">Y4</span></div>
+    </div>
+    <div class="col" style="gap:16px;width:420px">
+      <div class="row center" style="gap:12px"><span class="dot"></span><span class="body" style="color:var(--txt)">Land pods self-serve; expand to floors with a small sales team</span></div>
+      <div class="row center" style="gap:12px"><span class="dot"></span><span class="body" style="color:var(--txt)">NRR &gt;120% carries the curve as seats-per-account grow</span></div>
+      <div class="row center" style="gap:12px"><span class="dot"></span><span class="body" style="color:var(--txt)">Gross margin scales toward ~85% as STT/inference cost drops</span></div>
+    </div>
+  </div>
+</div><div class="foot"><span>Parley — Seed</span><span>10 · Plan</span></div></section>
+
+<!-- 11 · TEAM -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">Team</div>
+  <div class="h2" style="margin:14px 0 18px">Built by people who’ve shipped real-time &amp; sold hard.</div>
+  <div class="row" style="gap:18px">
+    <div class="card" style="flex:1"><div class="row center" style="gap:14px"><div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--green),var(--cyan))"></div><div><div class="t" style="margin:0">[Founder / CEO]</div><div class="mono" style="color:var(--dim)">GTM &amp; sales</div></div></div><div class="d" style="margin-top:14px">[Prior: scaled an SDR org / sold into sales teams. Add 1-line credibility.]</div></div>
+    <div class="card" style="flex:1"><div class="row center" style="gap:14px"><div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--blue),var(--violet))"></div><div><div class="t" style="margin:0">[Founder / CTO]</div><div class="mono" style="color:var(--dim)">Real-time &amp; ML</div></div></div><div class="d" style="margin-top:14px">[Prior: low-latency audio / speech / infra at a notable company. Add credibility.]</div></div>
+    <div class="card" style="flex:1"><div class="row center" style="gap:14px"><div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--amber),var(--red))"></div><div><div class="t" style="margin:0">[Founding eng / advisor]</div><div class="mono" style="color:var(--dim)">Product</div></div></div><div class="d" style="margin-top:14px">[Key hire or advisor with domain weight. Add credibility.]</div></div>
+  </div>
+  <div class="note" style="margin-top:26px">Placeholder — drop in real names, photos, and one credibility line each. This is the slide investors read first.</div>
+</div><div class="foot"><span>Parley — Seed</span><span>11 · Team</span></div></section>
+
+<!-- 12 · THE ASK -->
+<section class="slide grid"><div class="pad col">
+  <div class="kick">The ask</div>
+  <div class="h1" style="font-size:64px;margin:16px 0 16px">Raising <span class="grad">$3M seed.</span></div>
+  <div class="lead" style="max-width:800px">To turn early in-call “wow” into a repeatable, expanding motion — and own the real-time category before the incumbents wake up.</div>
+  <div class="row" style="gap:18px;margin-top:38px">
+    <div class="card" style="flex:1"><div class="h3" style="font-size:22px;color:var(--green)">40% · Product</div><div class="d" style="margin-top:10px">Latency, accuracy, the rebuttal-training loop, dialer/CRM breadth, compliance depth.</div></div>
+    <div class="card" style="flex:1"><div class="h3" style="font-size:22px;color:var(--cyan)">40% · GTM</div><div class="d" style="margin-top:10px">Founding AEs, the content/PLG engine, and dialer-marketplace distribution.</div></div>
+    <div class="card" style="flex:1"><div class="h3" style="font-size:22px;color:var(--blue)">20% · Team</div><div class="d" style="margin-top:10px">Speech/ML and product-eng hires to hold the real-time edge.</div></div>
+  </div>
+  <div class="row center" style="gap:14px;margin-top:34px"><span class="pill">18-month milestones</span><span class="body" style="font-size:16px;color:var(--txt)">$1M+ ARR · 120%+ NRR · repeatable pod→floor expansion · category-defining brand in real-time coaching.</span></div>
+</div><div class="foot"><span>Parley — Seed</span><span>12 · The ask</span></div></section>
+
+<!-- 13 · CLOSING -->
+<section class="slide grid"><div class="pad col between">
+  <div class="row between center"><div class="row center" style="gap:11px"><span class="dot"></span><span class="h3" style="font-size:24px">Parley</span></div><div class="mono">Seed round · Confidential</div></div>
+  <div>
+    <div class="h1" style="font-size:70px">Every rep sounds like<br>your <span class="grad">best rep.</span> Live.</div>
+    <div class="lead" style="margin-top:20px;max-width:720px">Win the call while they’re still on the line.</div>
+  </div>
+  <div class="row between center">
+    <div class="row" style="gap:10px"><span class="tag">[founder@parley.ai]</span><span class="tag">[parley.ai]</span></div>
+    <div class="mono" style="color:var(--dim)">Let’s talk.</div>
+  </div>
+</div><div class="foot"><span>Parley, Inc.</span><span>13 · Thank you</span></div></section>
+
+</body></html>

@@ -48,6 +48,7 @@ services:
   compliance:        { <<: *svc, build: ../parley-compliance-service, ports: ["8083:8083"] }
   billing:           { <<: *svc, build: ../parley-billing-service,    ports: ["8084:8084"] }
   analytics:         { <<: *svc, build: ../parley-analytics-service,  ports: ["8085:8085"] }
+  telephony:         { <<: *svc, build: ../parley-telephony-service,  ports: ["8087:8087"], environment: { NATS_URL: nats://nats:4222, DATABASE_URL: postgres://parley_app@pgbouncer:6432/parley, PORT: "8087" } }
 
 volumes:
   pgdata:

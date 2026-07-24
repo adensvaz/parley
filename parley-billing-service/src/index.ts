@@ -3,7 +3,7 @@
 // and updates subscriptions from Stripe (webhook). Tenant-scoped via @parley/db (RLS).
 import Fastify from "fastify";
 import { connect, JSONCodec, type NatsConnection } from "nats";
-import { SUBJECTS, type Envelope, type CallStarted } from "@parley/contracts";
+import { SUBJECTS, type Envelope, type CallStarted, type CallEnded } from "@parley/contracts";
 import { withOrg, repo } from "@parley/db";
 
 const jc = JSONCodec();
@@ -11,13 +11,27 @@ const jc = JSONCodec();
 async function main() {
   const nc: NatsConnection = await connect({ servers: process.env.NATS_URL || "nats://localhost:4222" });
 
-  // Meter each started call (and lazily ensure the org has a trial subscription).
+  // Meter each started call (and lazily ensure the org has a trial subscription). Calls are a coarse
+  // count; the real cost driver is CONNECTED MINUTES (STT + affect are per-minute), metered on call.ended.
   (async () => {
     for await (const m of nc.subscribe(SUBJECTS.callStarted, { queue: "billing" })) {
       const e = jc.decode(m.data) as Envelope<CallStarted>;
       try {
         await withOrg(e.orgId, async (tx) => { await repo.billing.ensureSub(tx, e.orgId); await repo.billing.meter(tx, e.orgId, "call"); });
       } catch (err) { console.error("[meter]", err); }
+    }
+  })();
+
+  // Meter connected MINUTES on call.ended — this is what actually costs money (Deepgram STT + the
+  // acoustic affect model both bill per audio-minute). Billing must track the cost unit, not just calls.
+  (async () => {
+    for await (const m of nc.subscribe(SUBJECTS.callEnded, { queue: "billing" })) {
+      const e = jc.decode(m.data) as Envelope<CallEnded>;
+      const minutes = Math.max(1, Math.ceil((e.data.durationSec ?? 0) / 60)); // round up; a connect is ≥1 min billed
+      if (!e.data.durationSec) continue; // no duration → nothing to meter (legacy/edge)
+      try {
+        await withOrg(e.orgId, (tx) => repo.billing.meter(tx, e.orgId, "minute", minutes));
+      } catch (err) { console.error("[meter:minute]", err); }
     }
   })();
 
@@ -30,14 +44,21 @@ async function main() {
     if (!orgId) return { allowed: false, reason: "no org" };
     return withOrg(orgId, async (tx) => {
       await repo.billing.ensureSub(tx, orgId);
-      const sub = await repo.billing.getSub(tx, orgId);
-      const used = await repo.billing.usedThisMonth(tx, orgId, "call");
-      const quota = sub?.monthly_call_quota ?? null; // null = unlimited
-      const allowed = quota === null || used < quota;
+      const sub: any = await repo.billing.getSub(tx, orgId);
+      const usedCalls = await repo.billing.usedThisMonth(tx, orgId, "call");
+      const usedMinutes = await repo.billing.usedThisMonth(tx, orgId, "minute");
+      const callQuota = sub?.monthly_call_quota ?? null;      // null = unlimited
+      const minuteQuota = sub?.monthly_minute_quota ?? null;  // per-seat included minutes; overage billed, not blocked
+      // Included MINUTES are the real allowance; going over meters overage (billed) rather than hard-blocking a
+      // live call. We only hard-block if the plan is inactive or a call-count cap (trial abuse guard) is hit.
+      const callAllowed = callQuota === null || usedCalls < callQuota;
+      const active = !sub?.status || sub.status === "active" || sub.status === "trialing";
       return {
-        plan: sub?.plan_id, status: sub?.status, quota, used,
-        remaining: quota === null ? null : Math.max(0, quota - used),
-        allowed,
+        plan: sub?.plan_id, status: sub?.status,
+        callQuota, usedCalls, callRemaining: callQuota === null ? null : Math.max(0, callQuota - usedCalls),
+        minuteQuota, usedMinutes, minuteRemaining: minuteQuota === null ? null : Math.max(0, minuteQuota - usedMinutes),
+        overageMinutes: minuteQuota === null ? 0 : Math.max(0, usedMinutes - minuteQuota),
+        allowed: active && callAllowed,
       };
     });
   });

@@ -9,8 +9,12 @@ import OpenAI from "openai";
 import type {
   ServerEvent, CallStage, Speaker, LeadContext, CopilotCard,
 } from "./types.js";
+import type { Affect } from "@parley/contracts";
 import { getMode, type ProspectingMode, type ObjectionRebuttal } from "./modes.js";
 import { RebuttalBandit } from "./leaps/bandit.js";
+import { lexicalAffect, fuseAffect, Thermometer, strategyFor, type Strategy } from "./affect.js";
+import { getCulture, calibrateAffect, culturalize, culturalStyle, type CultureProfile } from "./culture.js";
+import { VoiceBehaviourMeter } from "./behaviour.js";
 
 // A process-wide bandit so learning persists across calls (per-segment posteriors).
 const bandit = new RebuttalBandit();
@@ -35,13 +39,23 @@ export class CopilotEngine {
   private lastLlmAt = 0;
   // rebuttals shown this call whose outcome (appointment set?) will train the bandit
   private shown: { ctx: string; arm: string }[] = [];
+  // affect + lead temperature: the copilot re-reads the room every prospect turn.
+  private thermo = new Thermometer();
+  // Voice Behaviour Analysis (premium): aggregates the affect/resonance/heat stream into a behavioural profile.
+  private behaviour = new VoiceBehaviourMeter("live");
+  private affect: Affect = { emotion: "neutral", valence: 0, arousal: 0.3, confidence: 0.3, source: "lexical" };
+  private pendingAcoustic?: Affect;   // acoustic emotion (Hume) buffered from call.affect, fused on next utterance
+  private strategy?: Strategy;
+  private culture: CultureProfile;
 
   constructor(
     modeId: string,
     private lead: LeadContext | undefined,
     private emit: (ev: ServerEvent) => void,
+    cultureId?: string,   // prospect's culture (locale) — matches tone & closer style to their vibe
   ) {
     this.mode = getMode(modeId);
+    this.culture = getCulture(cultureId);
     // Kick off with the opener cue for this mode.
     const opener = this.mode.scriptSkeleton[0];
     if (opener) this.emit(card({ kind: "script", title: "Opener", body: opener.cue, urgency: "now", stage: "intro" }));
@@ -59,14 +73,47 @@ export class CopilotEngine {
       this.transcript.push({ speaker, text });
       // 1. Deterministic objection match on the PROSPECT's final utterances.
       if (speaker === "prospect") this.matchObjection(text);
-      // 2. Stage progression heuristic.
+      // 2. Read the room: prospect emotion + lead temperature → strategy for the next line.
+      if (speaker === "prospect") this.readRoom(text);
+      // 3. Stage progression heuristic.
       this.advanceStage(text, speaker);
-      // 3. Metrics every final utterance.
+      // 4. Metrics every final utterance.
       this.emitMetrics();
-      // 4. LLM advisor, throttled, when the prospect just spoke.
+      // 5. LLM advisor, throttled, conditioned on the tone we just read.
       if (speaker === "prospect") this.maybeAdvise();
     }
   }
+
+  /** Acoustic emotion from the audio edge (call.affect.v1). Buffered; fused on the next final utterance. */
+  ingestAcoustic(a: Affect) { if (a) this.pendingAcoustic = a; }
+
+  /** Understand the prospect's tone BEFORE we curate a response, and update the cold→hot temperature. */
+  private readRoom(text: string) {
+    const prev = this.affect;
+    // words + tone → fused affect, then RECALIBRATE to the prospect's culture (match their vibe, not a US default).
+    const fused = calibrateAffect(fuseAffect(lexicalAffect(text), this.pendingAcoustic), this.culture);
+    this.pendingAcoustic = undefined;              // consume the acoustic sample
+    this.affect = fused;
+    // emotional TRAJECTORY — react to the direction, not just the level (escalating vs. settling).
+    const da = fused.arousal - prev.arousal, dv = fused.valence - prev.valence;
+    const traj = da > 0.1 && dv < 0 ? "escalating" : (da < -0.1 || dv > 0.15) ? "cooling" : "steady";
+    const buyingSignal = /how much|what.*price|when could|how does it work|what if|next step|send me|what would that/i.test(text);
+    const objectionResolved = this.stage === "objection" && fused.valence > 0.1; // softened after a rebuttal
+    const { heat, tier, trend, drivers } = this.thermo.update({ affect: fused, prospectWords: words(text), buyingSignal, objectionResolved });
+    // base strategy from emotion/heat/trajectory, then re-voice it to the culture (framework + phrasing).
+    this.strategy = culturalize(strategyFor(fused, heat, traj), this.culture, fused);
+    this.emit({ type: "affect", affect: fused, heat, tier, trend, drivers });
+    // VOICE BEHAVIOUR ANALYSIS — fold this turn into the running behavioural profile, and push a live
+    // gauge to the overlay every couple of turns (the premium "how the call is feeling" read).
+    this.behaviour.push(fused, heat, { atMs: Date.now(), speaker: "prospect", words: words(text) });
+    if (this.behaviour.turns % 2 === 0)
+      this.emit({ type: "behaviour", behaviour: this.behaviour.snapshot(this.talkRatio()) });
+    // proactive coach the instant the room turns hostile — de-escalate to KEEP THEM ON THE LINE.
+    if (fused.emotion === "angry")
+      this.emit(card({ kind: "coach", title: "They're heating up — de-escalate", body: this.strategy.directive, urgency: "now" }));
+  }
+
+  private talkRatio(): number { const t = this.repWords + this.prospectWords || 1; return this.repWords / t; }
 
   private matchObjection(text: string) {
     const t = text.toLowerCase();
@@ -146,13 +193,22 @@ export class CopilotEngine {
 
     const recent = this.transcript.slice(-8).map((u) => `${u.speaker}: ${u.text}`).join("\n");
     const leadStr = this.lead ? `Lead: ${JSON.stringify(this.lead)}` : "";
+    // Curate the response for the tone we just read + the lead's temperature + their culture.
+    const tone = `Prospect tone: ${this.affect.emotion} (valence ${this.affect.valence.toFixed(1)}, lead heat ${this.thermo.value}/100).`;
+    const plan = this.strategy ? `Play it ${this.strategy.play} in the style of ${this.strategy.master}: ${this.strategy.directive}` : "";
+    const cx = culturalStyle(this.culture);
     try {
       const stream = await llm().chat.completions.create({
         model: MODEL,
         stream: true,
         max_tokens: 90,
         messages: [
-          { role: "system", content: `${this.mode.systemPrompt}\nCurrent stage: ${this.stage}. ${leadStr}\nGive ONE short, natural line the rep should say next. No preamble.` },
+          { role: "system", content:
+            `${this.mode.systemPrompt}\nCurrent stage: ${this.stage}. ${leadStr}\n${cx}\n${tone}\n${plan}\n` +
+            `OBJECTIVE: keep the prospect on the call and move them from cold toward hot. Never dead-end — ` +
+            `end on a question or a hook that earns the next sentence. Match their emotional temperature AND their ` +
+            `cultural style (don't pitch an angry prospect; don't hard-close an indirect one; don't stall a hot one). ` +
+            `Give ONE short, natural line the rep should say next. No preamble.` },
           { role: "user", content: recent },
         ],
       });
@@ -184,6 +240,8 @@ export class CopilotEngine {
   async finish() {
     const full = this.transcript.map((u) => `${u.speaker}: ${u.text}`).join("\n");
     if (!full) return;
+    // Finalize the Voice Behaviour Analysis first — it must land even if the LLM summary fails.
+    this.emit({ type: "behaviour", behaviour: this.behaviour.snapshot(this.talkRatio()), final: true });
     try {
       const res = await llm().chat.completions.create({
         model: MODEL,

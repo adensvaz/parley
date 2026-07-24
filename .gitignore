@@ -17,3 +17,7 @@ coverage/
 .DS_Store
 .vscode/
 .idea/
+
+# build artifacts / reference input
+*.zip
+parley-web/design-import/
