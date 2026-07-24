@@ -16,6 +16,7 @@ import { lexicalAffect, fuseAffect, Thermometer, strategyFor, type Strategy } fr
 import { getCulture, calibrateAffect, culturalize, culturalStyle, type CultureProfile } from "./culture.js";
 import { VoiceBehaviourMeter } from "./behaviour.js";
 import { detectStall, shouldInterrupt, pickTechnique, captureHook, interruptPrompt, type Technique } from "./patterns.js";
+import { nextBestAction, type CallSignals } from "./objectives.js";
 
 // A process-wide bandit so learning persists across calls (per-segment posteriors).
 const bandit = new RebuttalBandit();
@@ -52,6 +53,14 @@ export class CopilotEngine {
   private interruptsUsed = 0;
   private awaitingHook = false;                          // set after a memory-hook, to capture their answer
   private callbackAnchor?: { timeframe?: string; hook?: string }; // → post-call CRM follow-up
+  // Play-caller (directive layer): track the winnable objectives + time the ask.
+  private callStartMs = Date.now();
+  private repQuestions = 0;
+  private painSurfaced = false;
+  private valueTied = false;
+  private nextStepAsked = false;
+  private lastBuyingSignal = false;
+  private lastPlay?: { kind: string; at: number };
 
   constructor(
     modeId: string,
@@ -84,7 +93,10 @@ export class CopilotEngine {
       this.advanceStage(text, speaker);
       // 4. Metrics every final utterance.
       this.emitMetrics();
-      // 5. LLM advisor, throttled, conditioned on the tone we just read.
+      // 5. Play-caller: track the winnable objectives and proactively call the next best move (esp. the ask).
+      this.updateObjectiveSignals(speaker, text);
+      this.evaluatePlay(speaker, text);
+      // 6. LLM advisor, throttled, conditioned on the tone we just read.
       if (speaker === "prospect") this.maybeAdvise();
     }
   }
@@ -103,6 +115,7 @@ export class CopilotEngine {
     const da = fused.arousal - prev.arousal, dv = fused.valence - prev.valence;
     const traj = da > 0.1 && dv < 0 ? "escalating" : (da < -0.1 || dv > 0.15) ? "cooling" : "steady";
     const buyingSignal = /how much|what.*price|when could|how does it work|what if|next step|send me|what would that/i.test(text);
+    this.lastBuyingSignal = buyingSignal;   // feeds the play-caller's close-window detector
     const objectionResolved = this.stage === "objection" && fused.valence > 0.1; // softened after a rebuttal
     const { heat, tier, trend, drivers } = this.thermo.update({ affect: fused, prospectWords: words(text), buyingSignal, objectionResolved });
     // base strategy from emotion/heat/trajectory, then re-voice it to the culture (framework + phrasing).
@@ -153,6 +166,42 @@ export class CopilotEngine {
   }
 
   private talkRatio(): number { const t = this.repWords + this.prospectWords || 1; return this.repWords / t; }
+
+  // Update the winnable-objective signals from each final utterance (rep questions, pain, value, the ask).
+  private updateObjectiveSignals(speaker: Speaker, text: string) {
+    const t = text.toLowerCase();
+    if (speaker === "rep") {
+      if (text.includes("?")) this.repQuestions++;
+      if (NEXT_STEP_RE.test(t)) this.nextStepAsked = true;
+      if (this.painSurfaced && /\b(save|net|faster|because|so that|means you|that'?s why|which is why|the result|end up with)\b/.test(t)) this.valueTied = true;
+    } else if (/\b(problem|struggl|frustrat|not selling|didn'?t sell|too long|too expensive|can'?t|behind|losing|worried|need to|have to|falling|stuck|slow|no time|headache|pain)\b/.test(t)) {
+      this.painSurfaced = true;
+    }
+  }
+
+  // The directive layer: call the next best play (above all, TIME THE ASK). Throttled + deduped so it
+  // guides without nagging — a proactive "coach" card only when the moment genuinely calls for one.
+  private evaluatePlay(speaker: Speaker, text: string) {
+    const s: CallSignals = {
+      elapsedMs: Date.now() - this.callStartMs,
+      stage: this.stage,
+      repQuestions: this.repQuestions,
+      prospectTurns: this.transcript.filter((u) => u.speaker === "prospect").length,
+      painSurfaced: this.painSurfaced,
+      valueTied: this.valueTied,
+      nextStepAsked: this.nextStepAsked,
+      heat: this.thermo.value,
+      buyingSignal: this.lastBuyingSignal,
+      resonance: this.affect.resonance ?? 0,
+      repClosingNow: speaker === "rep" && NEXT_STEP_RE.test(text.toLowerCase()),
+    };
+    const play = nextBestAction(s);
+    if (!play) return;
+    const now = Date.now();
+    if (this.lastPlay && this.lastPlay.kind === play.kind && now - this.lastPlay.at < 25000) return; // don't nag
+    this.lastPlay = { kind: play.kind, at: now };
+    this.emit(card({ kind: "coach", title: play.action, body: play.detail, urgency: play.urgency, stage: this.stage }));
+  }
 
   private matchObjection(text: string) {
     const t = text.toLowerCase();
@@ -308,3 +357,5 @@ export class CopilotEngine {
 
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+// The rep is asking for / setting the next step (drives the play-caller's ask detection).
+const NEXT_STEP_RE = /\b(book|schedule|calendar|next step|tuesday|thursday|monday|friday|tomorrow|what time|15 minutes|grab (?:a )?time|set (?:up )?(?:a )?(?:time|call|meeting)|does (?:this|that) work|which works better)\b/;
