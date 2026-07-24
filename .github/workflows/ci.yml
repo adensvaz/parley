@@ -26,3 +26,20 @@ jobs:
           for f in $(ls parley-infra/db/migrations/*.sql | sort); do
             echo "applying $f"; PGPASSWORD=pw psql -h localhost -U postgres -d parley -v ON_ERROR_STOP=1 -f "$f"
           done
+
+  # Engine logic tests — run via tsx (type-only imports are erased, so no workspace install needed).
+  # Each test file exits non-zero on failure, so a broken assertion fails the job.
+  engine-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install -g tsx@4
+      - name: copilot engine (affect, culture, behaviour, patterns)
+        working-directory: parley-copilot-service
+        run: |
+          for t in affect culture behaviour patterns; do echo "── $t ──"; tsx qa/$t.test.ts; done
+      - name: gateway affect DSP
+        working-directory: parley-gateway
+        run: tsx qa/affect.test.ts
