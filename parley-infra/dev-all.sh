@@ -30,7 +30,11 @@ export IDENTITY_URL="http://localhost:8081"
 export BILLING_URL="http://localhost:8084" CRM_URL="http://localhost:8082"
 
 start() { # name dir port db
-  ( cd "$ROOT/$2" && DATABASE_URL="$4" PORT="$3" npx tsx src/index.ts >"/tmp/parley-$1.log" 2>&1 ) & PIDS+=($!)
+  # Each service's own .env (API keys — gitignored, chmod 600) is sourced into its process only,
+  # so secrets never leak into the shell that launched the platform.
+  ( cd "$ROOT/$2" \
+    && set -a && [ -f .env ] && . ./.env; set +a \
+    && DATABASE_URL="$4" PORT="$3" npx tsx src/index.ts >"/tmp/parley-$1.log" 2>&1 ) & PIDS+=($!)
 }
 echo "▶ services…"
 start identity   parley-identity-service   8081 "$ID_DB"

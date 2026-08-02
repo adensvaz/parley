@@ -17,6 +17,7 @@ import { getCulture, calibrateAffect, culturalize, culturalStyle, type CulturePr
 import { VoiceBehaviourMeter } from "./behaviour.js";
 import { detectStall, shouldInterrupt, pickTechnique, captureHook, interruptPrompt, type Technique } from "./patterns.js";
 import { nextBestAction, type CallSignals } from "./objectives.js";
+import { closerSystemPrompt, CLOSER_SHOTS, CLOSER_MODEL } from "./brain.js";
 
 // A process-wide bandit so learning persists across calls (per-segment posteriors).
 const bandit = new RebuttalBandit();
@@ -24,7 +25,11 @@ const bandit = new RebuttalBandit();
 // Lazy-init: importing this module must NOT require an API key (keeps it testable and
 // prevents a missing key from crashing the whole process at load).
 let _openai: OpenAI | null = null;
-const llm = () => (_openai ??= new OpenAI({ apiKey: process.env.OPENAI_API_KEY }));
+const llm = () => (_openai ??= new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  fetch: globalThis.fetch,   // the SDK's bundled node-fetch prematurely closes streams on Node 22+
+  maxRetries: 2,
+}));
 const MODEL = process.env.COPILOT_MODEL ?? "gpt-4o-mini";
 
 let cardSeq = 0;
@@ -60,6 +65,7 @@ export class CopilotEngine {
   private valueTied = false;
   private nextStepAsked = false;
   private lastBuyingSignal = false;
+  private lastTrajectory?: string;   // escalating | cooling | steady — the brain reacts to direction
   private lastPlay?: { kind: string; at: number };
 
   constructor(
@@ -114,6 +120,7 @@ export class CopilotEngine {
     // emotional TRAJECTORY — react to the direction, not just the level (escalating vs. settling).
     const da = fused.arousal - prev.arousal, dv = fused.valence - prev.valence;
     const traj = da > 0.1 && dv < 0 ? "escalating" : (da < -0.1 || dv > 0.15) ? "cooling" : "steady";
+    this.lastTrajectory = traj;
     const buyingSignal = /how much|what.*price|when could|how does it work|what if|next step|send me|what would that/i.test(text);
     this.lastBuyingSignal = buyingSignal;   // feeds the play-caller's close-window detector
     const objectionResolved = this.stage === "objection" && fused.valence > 0.1; // softened after a rebuttal
@@ -288,23 +295,29 @@ export class CopilotEngine {
     this.lastLlmAt = now;
 
     const recent = this.transcript.slice(-8).map((u) => `${u.speaker}: ${u.text}`).join("\n");
-    const leadStr = this.lead ? `Lead: ${JSON.stringify(this.lead)}` : "";
-    // Curate the response for the tone we just read + the lead's temperature + their culture.
-    const tone = `Prospect tone: ${this.affect.emotion} (valence ${this.affect.valence.toFixed(1)}, lead heat ${this.thermo.value}/100).`;
-    const plan = this.strategy ? `Play it ${this.strategy.play} in the style of ${this.strategy.master}: ${this.strategy.directive}` : "";
-    const cx = culturalStyle(this.culture);
+    // The closer brain builds the prompt from the VOICE read (how they sound) + heat + trajectory
+    // + strategy + culture — not just the transcript. See brain.ts for the craft rules.
+    const system = closerSystemPrompt({
+      modePrompt: this.mode.systemPrompt,
+      stage: this.stage,
+      affect: this.affect,
+      heat: this.thermo.value,
+      trajectory: this.lastTrajectory,
+      strategy: this.strategy ? `${this.strategy.play} (in the style of ${this.strategy.master}): ${this.strategy.directive}` : undefined,
+      culture: culturalStyle(this.culture),
+      lead: this.lead,
+      talkRatioRep: this.talkRatio(),
+    });
     try {
       const stream = await llm().chat.completions.create({
-        model: MODEL,
+        model: CLOSER_MODEL,
         stream: true,
         max_tokens: 90,
+        temperature: 0.7,          // enough variation to sound human, not enough to go off-script
+        presence_penalty: 0.4,     // discourages the same stock phrasings every turn
         messages: [
-          { role: "system", content:
-            `${this.mode.systemPrompt}\nCurrent stage: ${this.stage}. ${leadStr}\n${cx}\n${tone}\n${plan}\n` +
-            `OBJECTIVE: keep the prospect on the call and move them from cold toward hot. Never dead-end — ` +
-            `end on a question or a hook that earns the next sentence. Match their emotional temperature AND their ` +
-            `cultural style (don't pitch an angry prospect; don't hard-close an indirect one; don't stall a hot one). ` +
-            `Give ONE short, natural line the rep should say next. No preamble.` },
+          { role: "system", content: system },
+          ...CLOSER_SHOTS,
           { role: "user", content: recent },
         ],
       });
