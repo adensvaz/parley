@@ -2,6 +2,9 @@ node_modules/
 dist/
 dist-electron/
 build/
+!parley-desktop/build/
+!parley-desktop/build/**
+parley-desktop/build/icon.iconset/
 out/
 .next/
 *.tsbuildinfo
