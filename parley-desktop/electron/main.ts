@@ -127,6 +127,12 @@ app.whenReady().then(async () => {
     setDiscreet: (on) => setDiscreet(on),
     setClickThrough: (on) => overlay?.setIgnoreMouseEvents(on, { forward: true }),
     setWindowMode: (mode) => setWindowMode(mode),
+    windowAction: (a) => {
+      if (!overlay) return;
+      if (a === "close") overlay.close();
+      else if (a === "minimize") overlay.minimize();
+      else overlay.isMaximized() ? overlay.unmaximize() : overlay.maximize();
+    },
     listAudioDevices: async () => [],               // populated by renderer enumerateDevices in production
     checkDnc: async () => ({ blocked: false }),      // wired to the DNC service in production
     accountStatus: async () => ({ signedIn: false }),// wired to Clerk in production

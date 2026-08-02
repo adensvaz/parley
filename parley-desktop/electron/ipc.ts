@@ -23,6 +23,7 @@ export function registerIpc(deps: {
   setDiscreet: (on: boolean) => void;
   setClickThrough: (on: boolean) => void;
   setWindowMode: (mode: "setup" | "call") => void;
+  windowAction: (a: "close" | "minimize" | "maximize") => void;
   listAudioDevices: () => Promise<{ id: string; label: string }[]>;
   checkDnc: (phone: string) => Promise<{ blocked: boolean; reason?: string }>;
   accountStatus: () => Promise<{ signedIn: boolean; email?: string; plan?: string }>;
@@ -49,6 +50,7 @@ export function registerIpc(deps: {
     "overlay:setDiscreet": (req) => { deps.setDiscreet(!!req?.on); return { ok: true }; },
     "overlay:setClickThrough": (req) => { deps.setClickThrough(!!req?.on); return { ok: true }; },
     "overlay:setMode": (req) => { deps.setWindowMode(req?.mode === "call" ? "call" : "setup"); return { ok: true }; },
+    "window:action": (req) => { deps.windowAction(req?.action ?? "minimize"); return { ok: true }; },
 
     "audio:listDevices": () => deps.listAudioDevices(),
     "compliance:checkDnc": (req) => { if (!isStr(req?.phone)) throw new Error("bad phone"); return deps.checkDnc(req.phone); },
