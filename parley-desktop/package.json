@@ -1,5 +1,6 @@
 {
   "name": "parley-desktop",
+  "productName": "Parley",
   "version": "0.1.0",
   "description": "Parley — real-time cold-call AI copilot for real estate & sales",
   "author": "Parley",
@@ -10,7 +11,27 @@
     "build": "vite build",
     "server": "tsx server/gateway.ts",
     "test": "tsx qa/run.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "package": "vite build && electron-builder --mac --dir",
+    "dist": "vite build && electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.parley.desktop",
+    "productName": "Parley",
+    "copyright": "Copyright © 2026 Aden Vaz",
+    "directories": { "output": "release", "buildResources": "build" },
+    "files": ["dist/**/*", "dist-electron/**/*", "package.json"],
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.business",
+      "target": [{ "target": "dir", "arch": ["arm64"] }],
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Parley listens to your side of the call to coach you in real time.",
+        "NSCameraUsageDescription": "Not used by Parley.",
+        "LSUIElement": false
+      }
+    }
   },
   "dependencies": {
     "@deepgram/sdk": "^3.9.0",

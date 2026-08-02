@@ -44,6 +44,21 @@ function createOverlay() {
   (url ? overlay.loadURL(url) : overlay.loadFile(target));
   overlay.webContents.on("did-fail-load", (_e, code, desc) => console.error("[overlay] load failed:", code, desc));
   overlay.on("ready-to-show", () => overlay?.show());
+  if (process.env.PARLEY_DEBUG) {
+    overlay.webContents.on("did-finish-load", () => {
+      setTimeout(async () => {
+        console.error("[dbg]", JSON.stringify({
+          visible: overlay?.isVisible(), bounds: overlay?.getBounds(),
+          opacity: overlay?.getOpacity(), discreet: getSettings().general.overlayDiscreet,
+        }));
+        if (process.env.PARLEY_SHOT && overlay) {
+          const img = await overlay.webContents.capturePage();
+          (await import("node:fs")).writeFileSync(process.env.PARLEY_SHOT, img.toPNG());
+          console.error("[dbg] captured ->", process.env.PARLEY_SHOT);
+        }
+      }, 1200);
+    });
+  }
   return overlay;
 }
 
