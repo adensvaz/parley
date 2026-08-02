@@ -13,3 +13,5 @@ console.log("objection card:", card ? card.title : "NONE");
 console.log("stats field   :", JSON.stringify(card?.stats ?? null));
 ws.close();
 process.exit(card ? 0 : 1);
+
+export {};

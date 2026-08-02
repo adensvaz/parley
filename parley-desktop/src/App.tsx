@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useStore, type Screen } from "./store";
+import { useStore, type Disposition } from "./store";
 import { startCapture, stopCapture, sendTranscript, sendAudio, type GatewayMessage } from "./audioEngine";
 import { startVoice, stopVoice, type ToneRead } from "./voice";
 
@@ -17,32 +17,28 @@ const BOOKS = [
 
 export default function App() {
   const s = useStore();
-  const isRail = s.screen === "call" || s.screen === "wrap";
-  return isRail ? <Rail /> : (
+  if (s.screen === "call") return <Rail />;
+  return (
     <div className="win">
-      <Chrome title={s.screen === "floor" ? "Parley — Floor" : s.screen === "signin" ? "Parley" : "Parley — Setup"} />
+      <Chrome title={s.screen === "floor" ? "Parley — Floor" : s.screen === "signin" || s.screen === "home" ? "Parley" : "Parley — Setup"} />
       <div className="win-body">
         {s.screen === "signin" && <SignIn />}
         {s.screen === "book" && <PickBook />}
         {s.screen === "connect" && <Connect />}
+        {s.screen === "home" && <Home />}
         {s.screen === "floor" && <Floor />}
       </div>
     </div>
   );
 }
 
-/* ── window chrome: real close / minimise / maximise ─────────────────────────── */
 function Chrome({ title }: { title: string }) {
-  const go = useStore((z) => z.go);
   return (
     <div className="chrome">
       <button className="dot close" title="Close" onClick={() => win()?.windowAction?.("close")} />
       <button className="dot min" title="Minimise" onClick={() => win()?.windowAction?.("minimize")} />
       <button className="dot max" title="Zoom" onClick={() => win()?.windowAction?.("maximize")} />
       <span className="title">{title}</span>
-      <span className="right">
-        <button className="btn ghost xs" onClick={() => go("floor")}>Floor</button>
-      </span>
     </div>
   );
 }
@@ -66,10 +62,7 @@ function SignIn() {
         <div className="foot">Recording &amp; consent rules follow your playbook's compliance profile.</div>
       </div>
       <div className="form">
-        <div>
-          <h2>Welcome back</h2>
-          <p className="sub">Three steps: playbook, dialer, done.</p>
-        </div>
+        <div><h2>Welcome back</h2><p className="sub">Three steps: playbook, dialer, done.</p></div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <button className="btn ghost" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }} onClick={() => go("book")}>
             <span style={{ width: 18, height: 18, borderRadius: 4, background: "var(--verm)" }} />Continue with Google
@@ -87,7 +80,7 @@ function SignIn() {
   );
 }
 
-/* ── 02 · pick a playbook ────────────────────────────────────────────────────── */
+/* ── 02 · playbook ───────────────────────────────────────────────────────────── */
 function PickBook() {
   const { modeId, setMode, go } = useStore();
   return (
@@ -107,8 +100,7 @@ function PickBook() {
         {BOOKS.map((b) => (
           <button key={b.id} className={`book ${b.id === modeId ? "on" : ""}`} onClick={() => setMode(b.id)}>
             {b.id === modeId && <span className="tick">✓</span>}
-            <span className="cat">{b.cat}</span>
-            <span className="nm">{b.nm}</span>
+            <span className="cat">{b.cat}</span><span className="nm">{b.nm}</span>
             <span className="desc">{b.desc}</span>
             <span className="meta">{b.o} objections · {b.c} compliance rules</span>
           </button>
@@ -118,11 +110,10 @@ function PickBook() {
   );
 }
 
-/* ── 03 · connect the stack ──────────────────────────────────────────────────── */
+/* ── 03 · connect ────────────────────────────────────────────────────────────── */
 function Connect() {
-  const { go, startLive } = useStore();
+  const { go } = useStore();
   const [cal, setCal] = useState(false);
-  const begin = () => { startLive(); win()?.setWindowMode?.("call"); go("call"); };
   return (
     <div className="step rise">
       <div className="two">
@@ -151,7 +142,7 @@ function Connect() {
           </div>
           <div className="note">
             <b>Consent</b>
-            <span>Expired Listings requires one-party consent disclosure in 11 states. Parley will surface the line automatically on the rail when the number's area code hits one.</span>
+            <span>Expired Listings requires one-party consent disclosure in 11 states. Parley surfaces the line on the rail automatically when the number's area code hits one.</span>
           </div>
         </div>
         <div className="preview">
@@ -161,174 +152,248 @@ function Connect() {
             <span className="l">“Totally fair — most people aren't. Can I ask what made you take it off the market?”</span>
           </div>
           <p>The rail floats over your dialer at 420px wide. No setup, no dashboards — just the next line.</p>
-          <button className="btn" style={{ marginTop: "auto" }} onClick={begin}>Start calling</button>
+          <button className="btn" style={{ marginTop: "auto" }} onClick={() => go("home")}>Finish setup</button>
         </div>
       </div>
     </div>
   );
 }
 
-/* ── 04 · the rail (live call) ───────────────────────────────────────────────── */
+/* ── HOME — the hub. A session starts and ends here. ─────────────────────────── */
+function Home() {
+  const s = useStore();
+  const lead = s.queue[s.index];
+  const book = BOOKS.find((b) => b.id === s.modeId)!;
+  const remaining = s.queue.length - s.index;
+
+  const begin = () => {
+    if (!s.session) s.startSession();
+    s.armCall();
+    win()?.setWindowMode?.("call");
+  };
+
+  return (
+    <div className="step rise">
+      <div className="headrow">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <span className="eyebrow">{book.nm}</span>
+          <h2>Ready when you are</h2>
+          <p className="lede">Parley listens to your dialer. Start a session, then dial as normal — the rail appears the moment someone picks up.</p>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="btn ghost sm" onClick={() => s.go("book")}>Change playbook</button>
+          {s.hasTeam
+            ? <button className="btn ghost sm" onClick={() => s.go("floor")}>Floor</button>
+            : <button className="btn ghost sm" onClick={() => s.setHasTeam(true)}>Invite team</button>}
+        </div>
+      </div>
+
+      {s.session && (
+        <div className="sessionbar">
+          <span><b>{s.session.dials}</b> dials</span>
+          <span><b>{s.session.booked}</b> booked</span>
+          <span className="muted">session running</span>
+          <button className="btn ghost xs" style={{ marginLeft: "auto" }} onClick={() => s.endSession()}>End session</button>
+        </div>
+      )}
+
+      {remaining > 0 ? (
+        <div className="two">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <span className="k-lbl">Up next · {remaining} left in queue</span>
+            {s.queue.slice(s.index, s.index + 4).map((l, i) => (
+              <div key={l.id} className={`queued ${i === 0 ? "on" : ""}`}>
+                <span className="n">{i === 0 ? "NOW" : i + 1}</span>
+                <div className="txt"><b>{l.name}</b><span>{l.address} · {l.detail}</span></div>
+                {l.attempt > 1 && <span className="att">attempt {l.attempt}</span>}
+              </div>
+            ))}
+          </div>
+          <div className="preview">
+            <span className="lbl">Start calling</span>
+            <div className="card">
+              <span className="k">NEXT UP</span>
+              <span className="l">{lead.name}</span>
+              <span style={{ fontSize: 13, color: "var(--ink-3)" }}>{lead.address} · {lead.detail}</span>
+            </div>
+            <p>Parley arms the mic and waits. Dial {lead.name.split(" ")[0]} from your dialer — the rail goes live on the first voice it hears.</p>
+            <button className="btn" style={{ marginTop: "auto" }} onClick={begin}>{s.session ? "Next call →" : "Start session →"}</button>
+          </div>
+        </div>
+      ) : (
+        <div className="preview" style={{ maxWidth: 420 }}>
+          <span className="lbl">Queue complete</span>
+          <p>You've worked every lead in this list. {s.session ? `${s.session.dials} dials · ${s.session.booked} booked.` : ""}</p>
+          <button className="btn" onClick={() => s.endSession()}>Finish for today</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── THE RAIL — armed → live → wrap ──────────────────────────────────────────── */
 function Rail() {
   const s = useStore();
+  const lead = s.queue[s.index];
+  const book = BOOKS.find((b) => b.id === s.modeId)!;
   const [secs, setSecs] = useState(0);
   const [typed, setTyped] = useState("");
-  const [status, setStatus] = useState("connecting");
   const [tone, setTone] = useState<ToneRead | null>(null);
   const [mic, setMic] = useState(false);
-  const started = useRef(false);
-  const book = BOOKS.find((b) => b.id === s.modeId)!;
+  const [conn, setConn] = useState<"connecting" | "ready" | "offline">("connecting");
+  const armedFor = useRef<string>("");
 
+  // one capture session per lead, opened when the call arms
   useEffect(() => {
-    if (s.screen !== "call" || started.current) return;
-    started.current = true;
-    const t = setInterval(() => setSecs((n) => n + 1), 1000);
+    if (s.phase !== "armed") return;
+    const key = `${lead.id}`;
+    if (armedFor.current === key) return;
+    armedFor.current = key;
+    setSecs(0); setTone(null); setConn("connecting");
 
     const onEvent = (ev: GatewayMessage) => {
       const z = useStore.getState();
-      if (ev.type === "card") z.pushCard({ id: ev.id, kind: ev.kind, title: ev.title, body: ev.body, urgency: ev.urgency, stats: ev.stats });
-      else if (ev.type === "transcript" && ev.isFinal) {
+      if (ev.type === "card") { z.goLive(); z.pushCard({ id: ev.id, kind: ev.kind, title: ev.title, body: ev.body, urgency: ev.urgency, stats: ev.stats }); }
+      else if (ev.type === "transcript" && ev.isFinal && ev.text) {
+        z.goLive();                                   // real speech = the call is live
         z.pushLine({ speaker: ev.speaker, text: ev.text, ts: ev.ts });
         const w = z.transcript.reduce((a, l) => { const n = l.text.split(/\s+/).length; return { rep: a.rep + (l.speaker === "rep" ? n : 0), all: a.all + n }; }, { rep: 0, all: 1 });
         z.setTalk(w.rep / w.all);
-      } else if (ev.type === "lead") z.setLead(ev);
-      else if (ev.type === "blocked") z.setBlocked(ev.reason);
+      } else if (ev.type === "blocked") z.setBlocked(ev.reason);
     };
 
-    startCapture({ token: TOKEN, modeId: s.modeId, phone: "+15550001234", captureSystemAudio: false, onEvent })
+    startCapture({ token: TOKEN, modeId: s.modeId, phone: lead.phone, captureSystemAudio: false, onEvent })
       .then(async () => {
-        setStatus("live");
-        // ONE mic stream: local tone analysis + PCM to the gateway (Deepgram) + Web Speech words.
-        const r = await startVoice(
-          setTone,
-          (text, isFinal) => { if (isFinal && text) sendTranscript("rep", text); },
-          (pcm) => sendAudio("rep", pcm),
-        );
+        setConn("ready");
+        const r = await startVoice(setTone, undefined, (pcm) => sendAudio("rep", pcm));
         setMic(r.mic);
-        setStatus(!r.mic ? "no mic" : r.streaming ? "listening" : r.words ? "listening" : "tone only");
       })
-      .catch(() => setStatus("offline"));
+      .catch(() => setConn("offline"));
+  }, [s.phase, lead.id, s.modeId]);
 
-    return () => { clearInterval(t); stopCapture(); stopVoice(); };
-  }, [s.screen]);
+  useEffect(() => {
+    if (s.phase !== "live") return;
+    const t = setInterval(() => setSecs((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, [s.phase]);
 
-  const end = () => { stopCapture(); stopVoice(); useStore.getState().go("wrap"); };
-  const nextCall = () => { stopVoice(); const z = useStore.getState(); z.reset(); win()?.setWindowMode?.("setup"); z.go("book"); };
+  const dispose = (d: Disposition) => { stopCapture(); stopVoice(); armedFor.current = ""; useStore.getState().finishCall(d); };
+  const next = () => { useStore.getState().nextLead(); if (useStore.getState().screen === "home") win()?.setWindowMode?.("setup"); };
+  const quit = () => { stopCapture(); stopVoice(); armedFor.current = ""; win()?.setWindowMode?.("setup"); useStore.getState().endSession(); };
   const send = () => { if (!typed.trim()) return; sendTranscript("prospect", typed.trim()); setTyped(""); };
 
   const mm = String(Math.floor(secs / 60)).padStart(2, "0"), ss = String(secs % 60).padStart(2, "0");
   const you = Math.round(s.talkRatio * 100), hot = you > 55;
 
-  // triage: signals are telemetry, instructions are cards; newest wins, de-duped.
   const signal = s.cards.find((c) => c.kind === "signal");
   const seen = new Set<string>();
   const say = s.cards.filter((c) => c.kind !== "signal")
     .filter((c) => (seen.has(c.title) ? false : (seen.add(c.title), true))).slice(0, 3);
   const hero = say[0];
 
-  if (s.screen === "wrap") return <Wrap onNext={nextCall} secs={secs} />;
+  if (s.phase === "wrap") return <Wrap secs={secs} onNext={next} onQuit={quit} />;
 
   return (
     <div className="rail">
       <div className="railbar">
         <div className="l">
-          <span className={`live ${status === "offline" ? "warn" : ""}`} />
-          <b>Parley</b><span className="t">{mm}:{ss}</span>
+          <span className={`live ${s.phase === "armed" ? "idle" : ""}`} />
+          <b>Parley</b><span className="t">{s.phase === "armed" ? "armed" : `${mm}:${ss}`}</span>
         </div>
         <div className="r">
-          <span className="chip">{book.nm.split(" ")[0]} ▾</span>
+          <span className="chip">{book.nm.split(" ")[0]}</span>
           <button className="mini" title="Minimise" onClick={() => win()?.windowAction?.("minimize")}>—</button>
-          <button className="mini" title="End" onClick={end}>×</button>
+          <button className="mini" title="End session" onClick={quit}>×</button>
         </div>
       </div>
 
       <div className="mic">
         <span className={`rec ${mic ? "" : "off"}`} />
         <div className="vu"><i style={{ width: `${Math.round((tone?.level ?? 0) * 100)}%` }} /></div>
-        <span className="tone">
-          {mic ? (tone ? `${tone.emotion} · ${tone.pitchHz || "–"}Hz` : "listening…") : "no mic"}
-        </span>
+        <span className="tone">{!mic ? "no mic" : tone ? `${tone.emotion} · ${tone.pitchHz || "–"}Hz` : "listening…"}</span>
       </div>
 
       <div className="lead">
         <div className="top">
-          <span className="nm">{s.lead?.name ?? "Dana Whitfield"}</span>
-          <span className="att">2nd attempt</span>
+          <span className="nm">{lead.name}</span>
+          {lead.attempt > 1 && <span className="att">attempt {lead.attempt}</span>}
         </div>
-        <div className="sub">{s.lead?.address ?? "412 Ash Grove"} · expired 19 days · was $615k · 2 price cuts</div>
-        <div className="talk">
-          <div className="bar">
-            <i className={hot ? "hot" : ""} style={{ width: `${you}%` }} /><i className="rest" style={{ width: `${100 - you}%` }} />
-          </div>
-          <small>You {you}% · {hot ? "slow down" : "good"}</small>
-        </div>
-      </div>
-
-      <div className="feed">
-        {s.blocked && <div className="note"><b>Blocked</b><span>{s.blocked}</span></div>}
-        {!hero && <div className="railempty">Parley is listening.<br />Speak, or type what they said below.</div>}
-
-        {hero && (() => {
-          const [line, ...rest] = hero.body.split("▸");
-          return (
-            <div className="say rise" key={hero.id}>
-              <div className="hd">
-                <span className="k">HEARD · {hero.title.replace(/^Objection:\s*/i, "").toUpperCase()}</span>
-                <span className="b">SAY THIS</span>
-              </div>
-              <div className="bd">
-                <span className="line">{line.trim()}</span>
-                <div className="chips">
-                  {hero.stats && hero.stats.used > 0 && <span className="c">books {hero.stats.books}%</span>}
-                  {hero.stats && hero.stats.used > 0 && <span className="c">used {hero.stats.used}×</span>}
-                  {hero.stats && hero.stats.used === 0 && <span className="c">new line · learning</span>}
-                  <button className="next" onClick={() => useStore.getState().pushCard({ ...hero, id: hero.id + "r" })}>next line ⟳</button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {signal && (
-          <div className="coach">
-            <span>◔</span>
-            <div><b>Reading the room</b><span>{signal.title}{signal.body ? ` — ${signal.body}` : ""}</span></div>
+        <div className="sub">{lead.address} · {lead.detail}</div>
+        {s.phase === "live" && (
+          <div className="talk">
+            <div className="bar"><i className={hot ? "hot" : ""} style={{ width: `${you}%` }} /><i className="rest" style={{ width: `${100 - you}%` }} /></div>
+            <small>You {you}% · {hot ? "slow down" : "good"}</small>
           </div>
         )}
-
-        {say.slice(1, 2).map((c) => (
-          <div className="coach" key={c.id}>
-            <span>◔</span><div><b>Coach</b><span>{c.body.split("▸")[0].trim()}</span></div>
-          </div>
-        ))}
-
-        <div className="close">
-          <b>Close when warm</b>
-          <span className="l">“I have Thursday 4:15 or Friday 11 — 15 minutes, no pitch.”</span>
-          <div className="slots"><button>Thu 4:15</button><button>Fri 11:00</button></div>
-        </div>
       </div>
 
+      {s.phase === "armed" ? (
+        <div className="feed">
+          <div className="armed">
+            <div className="wait" />
+            <b>Waiting for the call</b>
+            <p>{conn === "offline" ? "Backend offline — run ./DEMO.sh" : `Dial ${lead.name} from your dialer. Parley goes live on the first voice it hears.`}</p>
+          </div>
+          <div className="opener">
+            <span className="k">OPENER · READY</span>
+            <span className="l">“{lead.name.split(" ")[0]}? Quick one — is the {lead.address} place still something you'd sell if the right buyer showed up?”</span>
+          </div>
+        </div>
+      ) : (
+        <div className="feed">
+          {s.blocked && <div className="note"><b>Blocked</b><span>{s.blocked}</span></div>}
+          {hero && (() => {
+            const [line] = hero.body.split("▸");
+            return (
+              <div className="say rise" key={hero.id}>
+                <div className="hd">
+                  <span className="k">HEARD · {hero.title.replace(/^Objection:\s*/i, "").toUpperCase()}</span>
+                  <span className="b">SAY THIS</span>
+                </div>
+                <div className="bd">
+                  <span className="line">{line.trim()}</span>
+                  <div className="chips">
+                    {hero.stats && hero.stats.used > 0 && <><span className="c">books {hero.stats.books}%</span><span className="c">used {hero.stats.used}×</span></>}
+                    {hero.stats && hero.stats.used === 0 && <span className="c">new line · learning</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+          {signal && <div className="coach"><span>◔</span><div><b>Reading the room</b><span>{signal.title}</span></div></div>}
+          {say.slice(1, 2).map((c) => (
+            <div className="coach" key={c.id}><span>◔</span><div><b>Coach</b><span>{c.body.split("▸")[0].trim()}</span></div></div>
+          ))}
+          <div className="close">
+            <b>Close when warm</b>
+            <span className="l">“I have Thursday 4:15 or Friday 11 — 15 minutes, no pitch.”</span>
+            <div className="slots"><button>Thu 4:15</button><button>Fri 11:00</button></div>
+          </div>
+        </div>
+      )}
+
       <div className="composer">
-        <input value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="Type what they said…" />
+        <input value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Type what they said…" />
         <button className="btn pine xs" onClick={send}>Send</button>
       </div>
       <div className="railfoot">
-        <button className="btn pine grow" onClick={end}>Booked</button>
-        <button className="btn ghost" onClick={end}>Not now</button>
-        <button className="btn ghost" onClick={end}>DNC</button>
+        <button className="btn pine grow" onClick={() => dispose("booked")}>Booked</button>
+        <button className="btn ghost" onClick={() => dispose("callback")}>Not now</button>
+        <button className="btn ghost" onClick={() => dispose("dnc")}>DNC</button>
       </div>
     </div>
   );
 }
 
-/* ── rail · wrap-up ──────────────────────────────────────────────────────────── */
-function Wrap({ onNext, secs }: { onNext: () => void; secs: number }) {
+/* ── wrap-up → next lead ─────────────────────────────────────────────────────── */
+function Wrap({ secs, onNext, onQuit }: { secs: number; onNext: () => void; onQuit: () => void }) {
   const s = useStore();
+  const lead = s.queue[s.index];
+  const upNext = s.queue[s.index + 1];
   const objections = s.cards.filter((c) => c.kind === "objection").length;
   const you = Math.round(s.talkRatio * 100);
-  const score = Math.min(100, 55 + objections * 8 + (you >= 30 && you <= 50 ? 15 : 0));
+  const booked = s.lastDisposition === "booked";
+  const score = Math.min(100, (booked ? 62 : 40) + objections * 8 + (you >= 30 && you <= 50 ? 15 : 0));
   const mm = String(Math.floor(secs / 60)).padStart(2, "0"), ss = String(secs % 60).padStart(2, "0");
   return (
     <div className="rail">
@@ -338,34 +403,41 @@ function Wrap({ onNext, secs }: { onNext: () => void; secs: number }) {
       </div>
       <div className="feed">
         <div className="score">
-          <div className="ring" style={{ background: `conic-gradient(var(--green) 0 ${score}%, var(--line-4) ${score}% 100%)` }}>
-            <i>{score}</i>
-          </div>
+          <div className="ring" style={{ background: `conic-gradient(var(--green) 0 ${score}%, var(--line-4) ${score}% 100%)` }}><i>{score}</i></div>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 800 }}>Appointment booked</div>
-            <div style={{ fontSize: 13, color: "var(--ink-3)" }}>Thu 4:15pm · logged to Follow Up Boss</div>
+            <div style={{ fontSize: 16, fontWeight: 800 }}>
+              {booked ? "Appointment booked" : s.lastDisposition === "dnc" ? "Removed — DNC" : "Callback logged"}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--ink-3)" }}>{lead.name} · logged to Follow Up Boss</div>
           </div>
         </div>
         <div className="wrapcard">
           <span className="k">WHAT WORKED</span>
-          <span>The “what's different this time?” pivot flipped her at 2:10. You held silence for 4 seconds — best of the day.</span>
+          <span>{objections > 0 ? `You handled ${objections} objection${objections > 1 ? "s" : ""} without freezing.` : "Clean open — no objections raised."}</span>
         </div>
         <div className="wrapcard bad">
           <span className="k">FIX NEXT CALL</span>
-          <span>{you > 55 ? `You talked ${you}% of the call. Ask, then let it land.` : "You quoted commission unprompted. Let them ask."}</span>
+          <span>{you > 55 ? `You talked ${you}% of the call. Ask, then let it land.` : "Ask one more discovery question before you pitch."}</span>
         </div>
+        {upNext && (
+          <div className="close">
+            <b>Up next</b>
+            <span className="l">{upNext.name}</span>
+            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{upNext.address} · {upNext.detail}</span>
+          </div>
+        )}
       </div>
       <div className="railfoot">
-        <button className="btn grow" onClick={onNext}>Next call →</button>
-        <button className="btn ghost" onClick={onNext}>Edit note</button>
+        <button className="btn grow" onClick={onNext}>{upNext ? "Next call →" : "Finish session"}</button>
+        <button className="btn ghost" onClick={onQuit}>End session</button>
       </div>
     </div>
   );
 }
 
-/* ── 05 · manager floor ──────────────────────────────────────────────────────── */
+/* ── manager floor — only for orgs with a team ───────────────────────────────── */
 function Floor() {
-  const go = useStore((z) => z.go);
+  const s = useStore();
   const reps = [
     { n: "Dana K.", d: 168, a: 9, t: 36, live: true }, { n: "Marcus R.", d: 151, a: 7, t: 41 },
     { n: "Priya S.", d: 143, a: 6, t: 58 }, { n: "Tom B.", d: 139, a: 5, t: 33, live: true },
@@ -386,7 +458,7 @@ function Floor() {
           <div className="r h"><span>Rep</span><span>Dials</span><span>Appts</span><span>Talk %</span></div>
           {reps.map((r) => (
             <div className="r" key={r.n}>
-              <b>{r.live && <span className="dot" />}{!r.live && <span style={{ width: 7 }} />}{r.n}{r.live && <span className="live">live</span>}</b>
+              <b>{r.live ? <span className="dot" /> : <span style={{ width: 7 }} />}{r.n}{r.live && <span className="live">live</span>}</b>
               <span>{r.d}</span><span style={{ fontWeight: 700 }}>{r.a}</span>
               <span className={r.t > 50 ? "hi" : "ok"}>{r.t}%</span>
             </div>
@@ -406,7 +478,7 @@ function Floor() {
           </div>
         </div>
       </div>
-      <button className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => go("book")}>← Back to calling</button>
+      <button className="btn ghost sm" style={{ alignSelf: "flex-start" }} onClick={() => s.go("home")}>← Back to calling</button>
     </div>
   );
 }

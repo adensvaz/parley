@@ -223,3 +223,31 @@ input{font-family:inherit}
   .floorgrid{grid-template-columns:1fr}
   .floor{padding:20px}
 }
+
+/* ── home: session bar + lead queue ────────────────────────────────────────── */
+.sessionbar{display:flex;align-items:center;gap:22px;padding:14px 18px;border-radius:13px;
+  background:var(--pine);color:#fff;font-size:13px}
+.sessionbar b{font-size:19px;font-weight:800;margin-right:5px}
+.sessionbar .muted{color:var(--pine-dim)}
+.sessionbar .btn.ghost{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.22);color:#fff}
+.sessionbar .btn.ghost:hover{background:rgba(255,255,255,.18)}
+.k-lbl{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.queued{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);
+  border-radius:13px;background:#fff}
+.queued.on{border:2px solid var(--verm);background:var(--verm-tint);padding:13px 15px}
+.queued .n{width:34px;flex:none;text-align:center;font-size:10px;font-weight:800;letter-spacing:.06em;
+  color:var(--muted)}
+.queued.on .n{color:var(--verm)}
+.queued .txt{flex:1;min-width:0}
+.queued .txt b{display:block;font-size:15px;font-weight:700}
+.queued .txt span{font-size:12.5px;color:var(--ink-3)}
+.queued .att{font-size:11px;font-weight:700;color:var(--amber-ink);background:var(--amber-tint);
+  padding:4px 9px;border-radius:999px;flex:none}
+
+/* ── rail: armed (waiting for the dialer) ──────────────────────────────────── */
+.armed{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:26px 16px 18px}
+.armed b{font-size:15px;font-weight:800}
+.armed p{font-size:13px;line-height:1.5;color:var(--ink-3);max-width:30ch}
+.wait{width:40px;height:40px;border-radius:999px;border:3px solid var(--line-4);
+  border-top-color:var(--pine);animation:spin 1.1s linear infinite;margin-bottom:4px}
+@keyframes spin{to{transform:rotate(360deg)}}

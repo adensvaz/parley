@@ -21,3 +21,5 @@ const last=await call(T,true);
 console.log("call 7 stats:", JSON.stringify(last?.stats));
 console.log(last?.stats?.used > 0 ? "✅ bandit is learning (used > 0)" : "❌ no learning recorded");
 process.exit(0);
+
+export {};
