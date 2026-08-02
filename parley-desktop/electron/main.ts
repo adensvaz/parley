@@ -20,20 +20,40 @@ function applyProtection(win: BrowserWindow) {
   win.setContentProtection(getSettings().general.overlayDiscreet);
 }
 
+/** Setup work (onboarding, playbooks, settings) needs room; a live call needs a thin rail
+ *  pinned out of the way. Same window, two shapes — switched via the `overlay:setMode` IPC. */
+export function setWindowMode(mode: "setup" | "call") {
+  if (!overlay) return;
+  const { workArea } = screen.getPrimaryDisplay();
+  if (mode === "call") {
+    const w = 420;
+    overlay.setResizable(false);
+    overlay.setBounds({ x: workArea.x + workArea.width - w - 24, y: workArea.y + 24, width: w, height: workArea.height - 80 }, true);
+    overlay.setAlwaysOnTop(true, "screen-saver");
+  } else {
+    const w = Math.min(900, workArea.width - 80), h = Math.min(680, workArea.height - 80);
+    overlay.setResizable(true);
+    overlay.setBounds({ x: workArea.x + Math.round((workArea.width - w) / 2), y: workArea.y + Math.round((workArea.height - h) / 2), width: w, height: h }, true);
+    overlay.setAlwaysOnTop(false);
+  }
+}
+
 function createOverlay() {
   const { workArea } = screen.getPrimaryDisplay();
-  const width = 420;
+  // Start in SETUP shape — the first thing a user sees is onboarding, not a call.
+  const width = Math.min(900, workArea.width - 80);
+  const height = Math.min(680, workArea.height - 80);
   overlay = new BrowserWindow({
-    width, height: workArea.height - 80,
-    x: workArea.x + workArea.width - width - 24, y: workArea.y + 24,
-    frame: false, transparent: true, hasShadow: false, resizable: false, skipTaskbar: true,
-    hiddenInMissionControl: true, alwaysOnTop: true, fullscreenable: false,
+    width, height,
+    x: workArea.x + Math.round((workArea.width - width) / 2),
+    y: workArea.y + Math.round((workArea.height - height) / 2),
+    frame: false, transparent: true, hasShadow: false, resizable: true, skipTaskbar: true,
+    hiddenInMissionControl: true, alwaysOnTop: false, fullscreenable: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true, nodeIntegration: false, sandbox: true,
     },
   });
-  overlay.setAlwaysOnTop(true, "screen-saver");
   overlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlay.setOpacity(getSettings().general.overlayOpacity);
   applyProtection(overlay);
@@ -106,6 +126,7 @@ app.whenReady().then(async () => {
     stopCapture: async () => ({ ok: true }),
     setDiscreet: (on) => setDiscreet(on),
     setClickThrough: (on) => overlay?.setIgnoreMouseEvents(on, { forward: true }),
+    setWindowMode: (mode) => setWindowMode(mode),
     listAudioDevices: async () => [],               // populated by renderer enumerateDevices in production
     checkDnc: async () => ({ blocked: false }),      // wired to the DNC service in production
     accountStatus: async () => ({ signedIn: false }),// wired to Clerk in production

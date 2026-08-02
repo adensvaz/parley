@@ -99,6 +99,7 @@ function Call({ toast }: { toast: (m: string) => void }) {
 
   useEffect(() => {
     if (started.current) return; started.current = true;
+    (window as any).parley?.setWindowMode?.("call");   // shrink to the pinned rail
     useStore.getState().startLive();
     const t = setInterval(() => setSecs((n) => n + 1), 1000);
 
@@ -123,7 +124,7 @@ function Call({ toast }: { toast: (m: string) => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const end = () => { stopCapture(); s.go("post"); };
+  const end = () => { stopCapture(); (window as any).parley?.setWindowMode?.("setup"); s.go("post"); };
   const mm = String(Math.floor(secs / 60)).padStart(2, "0"), ss = String(secs % 60).padStart(2, "0");
   const you = Math.round(s.talkRatio * 100), warn = you > 68;
   const last = s.transcript[s.transcript.length - 1];

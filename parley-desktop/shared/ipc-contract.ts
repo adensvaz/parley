@@ -25,6 +25,7 @@ export interface IpcInvokeMap {
 
   "overlay:setDiscreet": { req: { on: boolean }; res: { ok: true } };
   "overlay:setClickThrough": { req: { on: boolean }; res: { ok: true } };
+  "overlay:setMode": { req: { mode: "setup" | "call" }; res: { ok: true } };
 
   "audio:listDevices": { req: void; res: { id: string; label: string }[] };
   "compliance:checkDnc": { req: { phone: string }; res: { blocked: boolean; reason?: string } };
@@ -47,7 +48,7 @@ export const INVOKE_CHANNELS = [
   "secret:set", "secret:has", "secret:clear",
   "modes:list", "modes:upsert", "modes:delete",
   "capture:start", "capture:stop",
-  "overlay:setDiscreet", "overlay:setClickThrough",
+  "overlay:setDiscreet", "overlay:setClickThrough", "overlay:setMode",
   "audio:listDevices", "compliance:checkDnc", "account:status",
 ] as const satisfies readonly (keyof IpcInvokeMap)[];
 

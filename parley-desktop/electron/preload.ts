@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld("parley", {
   startCapture: (modeId: string) => invoke("capture:start", { modeId }),
   stopCapture: () => invoke("capture:stop"),
   setDiscreet: (on: boolean) => invoke("overlay:setDiscreet", { on }),
+  setWindowMode: (mode: "setup" | "call") => invoke("overlay:setMode", { mode }),
   listAudioDevices: () => invoke("audio:listDevices"),
   checkDnc: (phone: string) => invoke("compliance:checkDnc", { phone }),
   accountStatus: () => invoke("account:status"),
