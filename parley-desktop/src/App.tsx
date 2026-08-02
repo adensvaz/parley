@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore, type Screen } from "./store";
-import { startCapture, stopCapture, sendTranscript, type GatewayMessage } from "./audioEngine";
+import { startCapture, stopCapture, sendTranscript, sendAudio, type GatewayMessage } from "./audioEngine";
 import { startVoice, stopVoice, type ToneRead } from "./voice";
 
 const TOKEN = (import.meta as any).env?.VITE_DEV_TOKEN ?? "dev:user_demo:org_demo";
@@ -186,7 +186,7 @@ function Rail() {
 
     const onEvent = (ev: GatewayMessage) => {
       const z = useStore.getState();
-      if (ev.type === "card") z.pushCard({ id: ev.id, kind: ev.kind, title: ev.title, body: ev.body, urgency: ev.urgency });
+      if (ev.type === "card") z.pushCard({ id: ev.id, kind: ev.kind, title: ev.title, body: ev.body, urgency: ev.urgency, stats: ev.stats });
       else if (ev.type === "transcript" && ev.isFinal) {
         z.pushLine({ speaker: ev.speaker, text: ev.text, ts: ev.ts });
         const w = z.transcript.reduce((a, l) => { const n = l.text.split(/\s+/).length; return { rep: a.rep + (l.speaker === "rep" ? n : 0), all: a.all + n }; }, { rep: 0, all: 1 });
@@ -196,11 +196,18 @@ function Rail() {
     };
 
     startCapture({ token: TOKEN, modeId: s.modeId, phone: "+15550001234", captureSystemAudio: false, onEvent })
-      .then(() => setStatus("live")).catch(() => setStatus("offline"));
-
-    // Real voice: local tone always; words when the runtime has a speech provider.
-    startVoice(setTone, (text, isFinal) => { if (isFinal && text) sendTranscript("prospect", text); })
-      .then((r) => { setMic(r.mic); if (r.mic) setStatus(r.words ? "listening" : "tone only"); });
+      .then(async () => {
+        setStatus("live");
+        // ONE mic stream: local tone analysis + PCM to the gateway (Deepgram) + Web Speech words.
+        const r = await startVoice(
+          setTone,
+          (text, isFinal) => { if (isFinal && text) sendTranscript("rep", text); },
+          (pcm) => sendAudio("rep", pcm),
+        );
+        setMic(r.mic);
+        setStatus(!r.mic ? "no mic" : r.streaming ? "listening" : r.words ? "listening" : "tone only");
+      })
+      .catch(() => setStatus("offline"));
 
     return () => { clearInterval(t); stopCapture(); stopVoice(); };
   }, [s.screen]);
@@ -272,7 +279,9 @@ function Rail() {
               <div className="bd">
                 <span className="line">{line.trim()}</span>
                 <div className="chips">
-                  <span className="c">books 31%</span><span className="c">used 214×</span>
+                  {hero.stats && hero.stats.used > 0 && <span className="c">books {hero.stats.books}%</span>}
+                  {hero.stats && hero.stats.used > 0 && <span className="c">used {hero.stats.used}×</span>}
+                  {hero.stats && hero.stats.used === 0 && <span className="c">new line · learning</span>}
                   <button className="next" onClick={() => useStore.getState().pushCard({ ...hero, id: hero.id + "r" })}>next line ⟳</button>
                 </div>
               </div>

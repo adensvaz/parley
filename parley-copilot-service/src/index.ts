@@ -53,7 +53,7 @@ function makeEmit(nc: NatsConnection, callId: string, orgId: string, traceId: st
       return;
     }
     if (ev.type !== "card") return; // stage/metrics/postcall persisted elsewhere; cards drive the UI
-    const card: CallCard = { callId, kind: ev.kind, title: ev.title, body: ev.body, urgency: ev.urgency };
+    const card: CallCard = { callId, kind: ev.kind, title: ev.title, body: ev.body, urgency: ev.urgency, stats: ev.stats };
     publish<CallCard>(nc, SUBJECTS.callCard, orgId, traceId, card);
     persistCard(orgId, callId, card);
     if (ev.kind === "objection") {

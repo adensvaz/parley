@@ -45,7 +45,7 @@ function handleConnection(ws: WebSocket, ctx: AuthContext) {
     for await (const m of cardSub) {
       const e = jc.decode(m.data) as Envelope<CallCard>;
       if (e.orgId === ctx.orgId && e.data.callId === callId)
-        send({ type: "card", kind: e.data.kind, title: e.data.title, body: e.data.body, urgency: e.data.urgency, id: e.id });
+        send({ type: "card", kind: e.data.kind, title: e.data.title, body: e.data.body, urgency: e.data.urgency, stats: e.data.stats, id: e.id });
     }
   })();
 

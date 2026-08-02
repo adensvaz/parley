@@ -209,10 +209,12 @@ export class CopilotEngine {
       if (this.firedObjections.has(o.label)) continue;
       if (o.triggers.some((trig) => t.includes(trig))) {
         this.firedObjections.add(o.label);
+        const picked = this.pickRebuttal(o);
         this.emit(card({
           kind: "objection",
           title: `Objection: ${o.label}`,
-          body: this.pickRebuttal(o),
+          body: picked.text,
+          stats: picked.stats,
           urgency: "now",
           stage: "objection",
         }));
@@ -223,12 +225,18 @@ export class CopilotEngine {
   }
 
   /** Choose the rebuttal: bandit-optimized if variants exist, else the static line. */
-  private pickRebuttal(o: ObjectionRebuttal): string {
-    if (!o.variants?.length) return o.rebuttal;
+  private pickRebuttal(o: ObjectionRebuttal): { text: string; stats?: { books: number; used: number } } {
+    if (!o.variants?.length) return { text: o.rebuttal };
     const ctx = `${o.label}|${this.mode.id}|${this.lead?.leadType ?? ""}`;
     const arm = bandit.select(ctx, o.variants.map((v) => v.id));
     this.shown.push({ ctx, arm });
-    return o.variants.find((v) => v.id === arm)?.text ?? o.rebuttal;
+    // Surface the live posterior for the arm we just played: books% = P(appointment | this line),
+    // used = how many times it has actually been tried. These are measured, not decorative.
+    const post = bandit.armStats(ctx, arm);
+    return {
+      text: o.variants.find((v) => v.id === arm)?.text ?? o.rebuttal,
+      stats: post ? { books: Math.round(post.mean * 100), used: post.pulls } : undefined,
+    };
   }
 
   /** Train the bandit on the call outcome (reward = appointment set). Call on call.ended. */

@@ -80,6 +80,14 @@ export class RebuttalBandit {
     p.beta += 1 - reward;
   }
 
+  /** Posterior for ONE arm — the measured conversion rate and how often it's been played.
+   *  Beta(1,1) prior means pulls = α+β-2, and mean = α/(α+β). */
+  armStats(context: string, armId: string): { mean: number; pulls: number } | null {
+    const p = this.ctx.get(context)?.get(armId);
+    if (!p) return null;
+    return { mean: p.alpha / (p.alpha + p.beta), pulls: p.alpha + p.beta - 2 };
+  }
+
   /** Current best arm by posterior mean (for reporting / exploitation-only serving). */
   best(context: string): { armId: string; mean: number; pulls: number } | null {
     const m = this.ctx.get(context);

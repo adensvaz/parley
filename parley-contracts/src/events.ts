@@ -37,7 +37,7 @@ export type CallSource = "desktop" | "pstn" | "sip" | "zoom" | "meet" | "bridge"
 
 export interface CallStarted { callId: string; repId: string; leadId?: string; modeId: string; source?: CallSource /* default "desktop" */; culture?: string /* prospect locale, e.g. en-IN / zh-CN / ru-RU */ }
 export interface CallTranscript { callId: string; speaker: "rep" | "prospect"; text: string; isFinal: boolean }
-export interface CallCard { callId: string; kind: "objection" | "script" | "coach" | "answer" | "signal"; title: string; body: string; urgency: "now" | "soon" | "fyi" }
+export interface CallCard { callId: string; kind: "objection" | "script" | "coach" | "answer" | "signal"; title: string; body: string; urgency: "now" | "soon" | "fyi"; stats?: { books: number; used: number } }
 export interface CallEnded { callId: string; repId: string; disposition: string; talkRatioRep: number; appointmentSet: boolean; source?: CallSource; durationSec?: number /* connected audio seconds — the billable unit (STT/affect cost is per-minute) */ }
 export interface ObjectionFired { callId: string; label: string; severity?: "low" | "med" | "high" }
 export interface UsageMetered { metric: "call" | "minute"; qty: number }

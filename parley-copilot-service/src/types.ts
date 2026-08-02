@@ -45,6 +45,8 @@ export interface CopilotCard {
   urgency: "now" | "soon" | "fyi";
   stage?: CallStage;
   id: string;
+  /** live bandit posterior for the chosen rebuttal — books% and times played */
+  stats?: { books: number; used: number };
 }
 
 export interface StageEvent { type: "stage"; stage: CallStage }

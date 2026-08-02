@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 export type Screen = "signin" | "book" | "connect" | "call" | "wrap" | "floor";
-export interface Card { id: string; kind: "objection" | "script" | "coach" | "answer" | "signal" | "coach2"; title: string; body: string; urgency: "now" | "soon" | "fyi" }
+export interface Card { id: string; kind: "objection" | "script" | "coach" | "answer" | "signal" | "coach2"; title: string; body: string; urgency: "now" | "soon" | "fyi"; stats?: { books: number; used: number } }
 export interface Line { speaker: "rep" | "prospect"; text: string; ts: number }
 export interface Lead { name?: string; phone?: string; lead_type?: string; address?: string; status?: string }
 

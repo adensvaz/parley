@@ -7,7 +7,7 @@
 
 // Messages the gateway sends back to the desktop.
 export type GatewayMessage =
-  | { type: "card"; kind: "objection" | "script" | "coach" | "answer" | "signal"; title: string; body: string; urgency: "now" | "soon" | "fyi"; id: string }
+  | { type: "card"; kind: "objection" | "script" | "coach" | "answer" | "signal"; title: string; body: string; urgency: "now" | "soon" | "fyi"; id: string; stats?: { books: number; used: number } }
   | { type: "transcript"; speaker: "rep" | "prospect"; text: string; isFinal: boolean; ts: number }
   | { type: "lead"; name?: string; phone?: string; lead_type?: string; address?: string; status?: string }
   | { type: "blocked"; reason: string; plan?: string }
@@ -60,40 +60,19 @@ export async function startCapture(opts: CaptureOptions): Promise<void> {
   ws.onmessage = (e) => { try { opts.onEvent(JSON.parse(e.data) as GatewayMessage); } catch { /* ignore */ } };
   send({ type: "start", modeId: opts.modeId, phone: opts.phone });
 
-  // Audio capture is BEST-EFFORT: the session is defined by the gateway connection, not the mic.
-  // If the mic/loopback is denied or unavailable, the call still runs (typed practice mode) rather
-  // than failing the whole session with a misleading "backend offline".
-  try {
-    ctx = new AudioContext();
-    workletUrl = URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }));
-    await ctx.audioWorklet.addModule(workletUrl);
-
-    // rep mic
+  // The REP mic is owned by voice.ts (one stream, feeding both tone analysis and STT) and
+  // arrives here via sendAudio(). Only the prospect-side loopback is captured here.
+  if (opts.captureSystemAudio) {
     try {
-      const mic = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          deviceId: opts.micDeviceId ? { exact: opts.micDeviceId } : undefined,
-          echoCancellation: true,
-          noiseSuppression: opts.noiseSuppression ?? true,
-        },
-      });
-      pipe(mic, "rep");
+      ctx = new AudioContext();
+      workletUrl = URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }));
+      await ctx.audioWorklet.addModule(workletUrl);
+      const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      display.getVideoTracks().forEach((t) => t.stop()); // audio only
+      if (display.getAudioTracks().length) pipe(new MediaStream(display.getAudioTracks()), "prospect");
     } catch {
-      opts.onEvent({ type: "audioStatus", mic: false, reason: "microphone unavailable — practice mode" } as GatewayMessage);
+      // denied or unavailable — the call still runs on the rep's mic + typed input
     }
-
-    // prospect system-audio loopback
-    if (opts.captureSystemAudio !== false) {
-      try {
-        const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        display.getVideoTracks().forEach((t) => t.stop()); // we only want the audio
-        if (display.getAudioTracks().length) pipe(new MediaStream(display.getAudioTracks()), "prospect");
-      } catch {
-        // user denied screen audio — degrade gracefully to mic-only
-      }
-    }
-  } catch {
-    // no WebAudio at all (or worklet blocked) — still a valid connected session
   }
 }
 
@@ -110,6 +89,11 @@ function pipe(stream: MediaStream, speaker: "rep" | "prospect") {
  *  the copilot exactly like an STT result. Powers "Practice Mode" and headless testing. */
 export function sendTranscript(speaker: "rep" | "prospect", text: string, isFinal = true): void {
   send({ type: "transcript", speaker, text, isFinal });
+}
+
+/** Stream 16kHz PCM16 to the gateway for cloud STT. Fed by voice.ts so the mic opens once. */
+export function sendAudio(speaker: "rep" | "prospect", pcm16: string): void {
+  send({ type: "audio", speaker, pcm16 });
 }
 
 export function stopCapture(): void {

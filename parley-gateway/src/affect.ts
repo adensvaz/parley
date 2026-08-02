@@ -107,7 +107,7 @@ function fromEmotionScores(scores: { name: string; score: number }[], model: str
 async function emotion2vec(wav: Buffer): Promise<Affect | null> {
   if (!EMOTION2VEC_URL) return null;
   try {
-    const r = await fetch(EMOTION2VEC_URL, { method: "POST", headers: { "content-type": "audio/wav" }, body: wav });
+    const r = await fetch(EMOTION2VEC_URL, { method: "POST", headers: { "content-type": "audio/wav" }, body: new Uint8Array(wav) });
     if (!r.ok) return null; const j: any = await r.json();
     return fromEmotionScores(j.emotions ?? j.scores, "emotion2vec");
   } catch { return null; }

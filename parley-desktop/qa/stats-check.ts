@@ -1,0 +1,15 @@
+const TOKEN="dev:user_stats:org_stats";
+const sleep=(m:number)=>new Promise(r=>setTimeout(r,m));
+const id:any=await fetch("http://localhost:8081/verify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:TOKEN})}).then(r=>r.json());
+const ws:any=new WebSocket(`ws://localhost:8080/rt?token=${encodeURIComponent(TOKEN)}`);
+let card:any=null;
+ws.onmessage=(e:any)=>{const m=JSON.parse(e.data); if(m.type==="card"&&m.kind==="objection"&&!card) card=m;};
+await new Promise<void>((res,rej)=>{ws.onopen=()=>res();ws.onerror=()=>rej(new Error("ws"))});
+ws.send(JSON.stringify({type:"start",modeId:"expired"}));
+await sleep(600);
+ws.send(JSON.stringify({type:"transcript",speaker:"prospect",text:"honestly i'm not interested",isFinal:true}));
+await sleep(2500);
+console.log("objection card:", card ? card.title : "NONE");
+console.log("stats field   :", JSON.stringify(card?.stats ?? null));
+ws.close();
+process.exit(card ? 0 : 1);

@@ -34,10 +34,21 @@ export interface ProspectingMode {
 
 // ── Shared objection library (applies to nearly every cold call) ──────────────
 const COMMON_OBJECTIONS: ObjectionRebuttal[] = [
+  // The highest-frequency objections carry VARIANTS: the contextual bandit picks between them and
+  // learns which actually books, per segment. Everything else falls back to the single best line.
   { triggers: ["not interested", "no thanks", "we're good", "not right now"], label: "Not interested", severity: "high",
-    rebuttal: "Totally fair — most people aren't until they hear the one thing I called about. Can I take 20 seconds and you tell me to buzz off if it's not useful?" },
+    rebuttal: "Totally fair — most people aren't until they hear the one thing I called about. Can I take 20 seconds and you tell me to buzz off if it's not useful?",
+    variants: [
+      { id: "ni_20sec", text: "Totally fair — most people aren't until they hear the one thing I called about. Can I take 20 seconds and you tell me to buzz off if it's not useful?" },
+      { id: "ni_candor", text: "That's a fair reaction, and I won't pretend this is for everyone. Give me one straight minute — if it's not worth it, I'll be the one to end the call." },
+      { id: "ni_curiosity", text: "Understood. One honest question and then I'll leave you alone: if you did move in the next year, what would have to be true for it to be worth it?" },
+    ] },
   { triggers: ["how did you get my number", "who is this", "where'd you get", "how'd you get my"], label: "How'd you get my number", severity: "med",
-    rebuttal: "Fair question — your info came up as [source]. I'm not a robocall, it's just me. I'll be quick and respectful of your time." },
+    rebuttal: "Fair question — your info came up as [source]. I'm not a robocall, it's just me. I'll be quick and respectful of your time.",
+    variants: [
+      { id: "num_source", text: "Fair question — your listing came up as recently expired. I'm not a robocall, it's just me, and I'll be quick." },
+      { id: "num_disarm", text: "Fair to ask. Public listing records — and yes, it's a cold call. I'll be worth the 30 seconds or I'll hang up myself." },
+    ] },
   { triggers: ["already have an agent", "working with someone", "have a realtor", "have a guy"], label: "Already have someone", severity: "med",
     rebuttal: "Great — sounds like you're in good hands. I'm not calling to replace anyone, I called because [specific reason]. Worth 30 seconds?" },
   { triggers: ["take me off", "do not call", "stop calling", "remove me", "off your list"], label: "DNC request", severity: "high",

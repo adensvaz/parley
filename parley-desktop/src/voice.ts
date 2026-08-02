@@ -21,11 +21,31 @@ export interface ToneRead {
 
 type ToneCb = (t: ToneRead) => void;
 type WordsCb = (text: string, isFinal: boolean) => void;
+type PcmCb = (base64Pcm16: string) => void;
+
+// 16kHz mono PCM16 decimator — the format cloud STT (Deepgram) expects. Runs off the SAME
+// mic stream as the tone analysis so we never open the microphone twice.
+const PCM_WORKLET = `
+class P extends AudioWorkletProcessor{
+  constructor(){super();this.b=[];this.r=sampleRate/16000;this.a=0}
+  process(i){const c=i[0]&&i[0][0];if(!c)return true;
+    for(let k=0;k<c.length;k++){this.a++;if(this.a>=this.r){this.a-=this.r;
+      const s=Math.max(-1,Math.min(1,c[k]));this.b.push(s<0?s*0x8000:s*0x7FFF)}}
+    if(this.b.length>=1600){const a=Int16Array.from(this.b);this.b=[];this.port.postMessage(a.buffer,[a.buffer])}
+    return true}}
+registerProcessor('pcm16',P)`;
+
+function toB64(buf: ArrayBuffer): string {
+  const b = new Uint8Array(buf); let s = "";
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s);
+}
 
 let ctx: AudioContext | null = null;
 let stream: MediaStream | null = null;
 let raf = 0;
 let recog: any = null;
+let workletUrl: string | null = null;
 const pitchHistory: number[] = [];
 const voicedHistory: number[] = [];
 
@@ -63,21 +83,34 @@ function classify(f: { energyDb: number; pitchHz: number; pitchVar: number; spee
   return { emotion, valence, arousal };
 }
 
-/** Start the mic: continuous tone analysis, plus words when the runtime can. */
-export async function startVoice(onTone: ToneCb, onWords?: WordsCb): Promise<{ mic: boolean; words: boolean }> {
-  let mic = false, words = false;
+/** Start the mic once. Tone is always analysed locally; PCM is forwarded for cloud STT when
+ *  a sink is provided; Web Speech supplies words when the runtime has a provider. */
+export async function startVoice(onTone: ToneCb, onWords?: WordsCb, onPcm?: PcmCb): Promise<{ mic: boolean; words: boolean; streaming: boolean }> {
+  let mic = false, words = false, streaming = false;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
     });
     mic = true;
-  } catch { return { mic: false, words: false }; }
+  } catch { return { mic: false, words: false, streaming: false }; }
 
   ctx = new AudioContext();
   const src = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
   src.connect(analyser);
+
+  // Same stream → 16kHz PCM16 for cloud STT.
+  if (onPcm) {
+    try {
+      workletUrl = URL.createObjectURL(new Blob([PCM_WORKLET], { type: "text/javascript" }));
+      await ctx.audioWorklet.addModule(workletUrl);
+      const node = new AudioWorkletNode(ctx, "pcm16");
+      node.port.onmessage = (e: MessageEvent<ArrayBuffer>) => onPcm(toB64(e.data));
+      src.connect(node); // sink only — never connect to destination (feedback)
+      streaming = true;
+    } catch { streaming = false; }
+  }
 
   const time = new Float32Array(analyser.fftSize);
   const loop = () => {
@@ -124,13 +157,14 @@ export async function startVoice(onTone: ToneCb, onWords?: WordsCb): Promise<{ m
       words = true;
     } catch { words = false; }
   }
-  return { mic, words };
+  return { mic, words, streaming };
 }
 
 export function stopVoice() {
   cancelAnimationFrame(raf);
   try { recog?.stop(); } catch {}
   recog = null;
+  if (workletUrl) { URL.revokeObjectURL(workletUrl); workletUrl = null; }
   stream?.getTracks().forEach((t) => t.stop());
   stream = null;
   ctx?.close(); ctx = null;
