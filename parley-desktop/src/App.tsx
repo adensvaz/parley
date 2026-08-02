@@ -20,6 +20,7 @@ const SLIDES = [
   { ic: "📈", h: "Every call makes you better", p: "Auto-scored, auto-logged to your CRM, follow-up drafted. Your manager sees the whole floor light up.", chips: [] as string[][] },
 ];
 const STAGES = ["intro", "discovery", "value", "objection", "close", "wrap"];
+const ICON: Record<string, string> = { objection: "🛡️", script: "🧭", coach: "🎯", coach2: "🎯", answer: "💬", signal: "📈" };
 
 function useToast() {
   const [msg, setMsg] = useState("");
@@ -128,6 +129,16 @@ function Call({ toast }: { toast: (m: string) => void }) {
   const last = s.transcript[s.transcript.length - 1];
   const sendPractice = () => { if (!practice.trim()) return; sendTranscript("prospect", practice.trim()); setPractice(""); };
 
+  // Triage the feed so the rep sees ONE thing to say, not a wall.
+  //  • signals (tone/heat/rapport) are telemetry → a single quiet strip, latest only
+  //  • everything else is an instruction → newest first, de-duplicated by title
+  const signal = s.cards.find((c) => c.kind === "signal");
+  const seen = new Set<string>();
+  const say = s.cards
+    .filter((c) => c.kind !== "signal")
+    .filter((c) => (seen.has(c.title) ? false : (seen.add(c.title), true)))
+    .slice(0, 4);
+
   return (
     <section className="screen">
       <div className="topbar"><div className="logo" style={{ fontSize: 16 }}><b>Parley</b></div><span className="pill">{mode.ic} {mode.n}</span></div>
@@ -165,12 +176,30 @@ function Call({ toast }: { toast: (m: string) => void }) {
           </div>
           {s.lead && <div className="leadctx"><b>{s.lead.name}</b><span>{s.lead.address} · {s.lead.lead_type}</span></div>}
           {s.blocked && <div className="blocked">⛔ Call blocked — {s.blocked}. Upgrade your plan to continue.</div>}
+          {/* Signals are telemetry, not instructions — one quiet strip, never a card. */}
+          {signal && <div className="signalstrip">📈 {signal.title}</div>}
+
           <div className="cards">
-            {s.cards.length === 0 && <div className="empty">Parley is pre-warming likely objections…</div>}
-            {s.cards.map((c) => {
-              const ic = { objection: "🛡️", script: "🧭", coach: "🎯", coach2: "🎯", answer: "💬", signal: "📈" }[c.kind] ?? "💬";
-              return <div key={c.id} className={`card ${c.kind}`}><div className="h"><span>{ic} <b>{c.title}</b></span>{c.urgency === "now" && <span className="badge">NOW</span>}</div><p>{c.body}</p></div>;
-            })}
+            {say.length === 0 && <div className="empty">Parley is pre-warming likely objections…</div>}
+            {/* HERO: the one line to say right now. Everything else is subordinate. */}
+            {say[0] && (() => {
+              // The engine packs "the line ▸ why/how" into one body. Say-it and think-it are
+              // different jobs mid-call: the line must be readable at a glance, the note quiet.
+              const [line, ...note] = say[0].body.split("▸");
+              return (
+                <div className={`card hero ${say[0].kind}`}>
+                  <div className="h"><span>{ICON[say[0].kind] ?? "💬"} <b>{say[0].title}</b></span><span className="badge">SAY THIS</span></div>
+                  <p>{line.trim()}</p>
+                  {note.length > 0 && <p className="note">{note.join("▸").trim()}</p>}
+                </div>
+              );
+            })()}
+            {say.slice(1).map((c) => (
+              <div key={c.id} className={`card sub ${c.kind}`}>
+                <div className="h"><span>{ICON[c.kind] ?? "💬"} <b>{c.title}</b></span></div>
+                <p>{c.body}</p>
+              </div>
+            ))}
           </div>
 
           {/* last thing heard — keeps context without a whole transcript pane */}

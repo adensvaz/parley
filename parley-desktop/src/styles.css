@@ -131,6 +131,19 @@ h1{font-size:28px;letter-spacing:-.8px}.sub{color:var(--muted);font-size:15px;ma
   .sumcard{padding:14px}
 }
 
+/* ── Card hierarchy: ONE thing to say, everything else quiet ───────────────── */
+.signalstrip{padding:7px 14px;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--muted);letter-spacing:.01em}
+.card.hero{border-left-width:3px;border-color:rgba(255,255,255,.14);background:linear-gradient(180deg,rgba(91,140,255,.14),var(--panel));box-shadow:0 0 0 1px rgba(91,140,255,.25),var(--glow)}
+.card.hero .h{font-size:12px}
+.card.hero .h b{color:#fff}
+.card.hero p{font-size:16px;line-height:1.5;color:#fff}
+.card.hero .badge{background:var(--accent);letter-spacing:.04em}
+.card.hero p.note{font-size:12.5px;line-height:1.45;color:var(--muted);margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
+.card.sub{opacity:.72;background:transparent;border-color:var(--line)}
+.card.sub p{font-size:13px;color:var(--muted)}
+.card.sub .h{font-size:11px}
+.card.sub:hover{opacity:1}
+
 /* compose bar pinned in the rail */
 .compose{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
 .compose input{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;font-size:13.5px;font-family:inherit}
