@@ -10,7 +10,8 @@ export type GatewayMessage =
   | { type: "card"; kind: "objection" | "script" | "coach" | "answer" | "signal"; title: string; body: string; urgency: "now" | "soon" | "fyi"; id: string }
   | { type: "transcript"; speaker: "rep" | "prospect"; text: string; isFinal: boolean; ts: number }
   | { type: "lead"; name?: string; phone?: string; lead_type?: string; address?: string; status?: string }
-  | { type: "blocked"; reason: string; plan?: string };
+  | { type: "blocked"; reason: string; plan?: string }
+  | { type: "audioStatus"; mic: boolean; reason: string };
 
 const GATEWAY = (import.meta as any).env?.VITE_GATEWAY_URL ?? "ws://localhost:8080";
 
@@ -59,29 +60,40 @@ export async function startCapture(opts: CaptureOptions): Promise<void> {
   ws.onmessage = (e) => { try { opts.onEvent(JSON.parse(e.data) as GatewayMessage); } catch { /* ignore */ } };
   send({ type: "start", modeId: opts.modeId, phone: opts.phone });
 
-  ctx = new AudioContext();
-  workletUrl = URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }));
-  await ctx.audioWorklet.addModule(workletUrl);
+  // Audio capture is BEST-EFFORT: the session is defined by the gateway connection, not the mic.
+  // If the mic/loopback is denied or unavailable, the call still runs (typed practice mode) rather
+  // than failing the whole session with a misleading "backend offline".
+  try {
+    ctx = new AudioContext();
+    workletUrl = URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }));
+    await ctx.audioWorklet.addModule(workletUrl);
 
-  // rep mic
-  const mic = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      deviceId: opts.micDeviceId ? { exact: opts.micDeviceId } : undefined,
-      echoCancellation: true,
-      noiseSuppression: opts.noiseSuppression ?? true,
-    },
-  });
-  pipe(mic, "rep");
-
-  // prospect system-audio loopback
-  if (opts.captureSystemAudio !== false) {
+    // rep mic
     try {
-      const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      display.getVideoTracks().forEach((t) => t.stop()); // we only want the audio
-      if (display.getAudioTracks().length) pipe(new MediaStream(display.getAudioTracks()), "prospect");
+      const mic = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: opts.micDeviceId ? { exact: opts.micDeviceId } : undefined,
+          echoCancellation: true,
+          noiseSuppression: opts.noiseSuppression ?? true,
+        },
+      });
+      pipe(mic, "rep");
     } catch {
-      // user denied screen audio — degrade gracefully to mic-only
+      opts.onEvent({ type: "audioStatus", mic: false, reason: "microphone unavailable — practice mode" } as GatewayMessage);
     }
+
+    // prospect system-audio loopback
+    if (opts.captureSystemAudio !== false) {
+      try {
+        const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        display.getVideoTracks().forEach((t) => t.stop()); // we only want the audio
+        if (display.getAudioTracks().length) pipe(new MediaStream(display.getAudioTracks()), "prospect");
+      } catch {
+        // user denied screen audio — degrade gracefully to mic-only
+      }
+    }
+  } catch {
+    // no WebAudio at all (or worklet blocked) — still a valid connected session
   }
 }
 

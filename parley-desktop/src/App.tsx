@@ -111,11 +111,12 @@ function Call({ toast }: { toast: (m: string) => void }) {
         st.setTalk(words.rep / words.all);
       } else if (ev.type === "lead") st.setLead(ev);
       else if (ev.type === "blocked") st.setBlocked(ev.reason);
+      else if (ev.type === "audioStatus" && !ev.mic) setStatus("live · practice mode");
     };
 
     startCapture({ token: TOKEN, modeId: s.modeId, phone: "+15550001234", onEvent })
-      .then(() => setStatus("live"))
-      .catch(() => setStatus("backend offline — start the gateway to go live"));
+      .then(() => setStatus((cur) => (cur.startsWith("live") ? cur : "live")))
+      .catch(() => setStatus("backend offline — run ./DEMO.sh"));
 
     return () => { clearInterval(t); stopCapture(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
