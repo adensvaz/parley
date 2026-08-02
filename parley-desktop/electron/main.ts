@@ -4,6 +4,10 @@
 
 import { app, BrowserWindow, globalShortcut, desktopCapturer, session, screen } from "electron";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// The bundle is ESM (package.json "type":"module"), so __dirname doesn't exist — recreate it.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { initStore, getSettings, patchSettings } from "./secureStore.js";
 import { registerIpc, trackRenderer, broadcast } from "./ipc.js";
 import { openSettings } from "./settingsWindow.js";
@@ -25,7 +29,7 @@ function createOverlay() {
     frame: false, transparent: true, hasShadow: false, resizable: false, skipTaskbar: true,
     hiddenInMissionControl: true, alwaysOnTop: true, fullscreenable: false,
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true, nodeIntegration: false, sandbox: true,
     },
   });
@@ -36,8 +40,10 @@ function createOverlay() {
   trackRenderer(overlay.webContents);
 
   const url = process.env.VITE_DEV_SERVER_URL;
-  if (url) overlay.loadURL(url);
-  else overlay.loadFile(path.join(__dirname, "../dist/index.html"));
+  const target = url ?? path.join(__dirname, "../dist/index.html");
+  (url ? overlay.loadURL(url) : overlay.loadFile(target));
+  overlay.webContents.on("did-fail-load", (_e, code, desc) => console.error("[overlay] load failed:", code, desc));
+  overlay.on("ready-to-show", () => overlay?.show());
   return overlay;
 }
 

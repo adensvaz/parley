@@ -1,6 +1,9 @@
 // Settings window — a standard (non-overlay) hardened BrowserWindow.
 import { BrowserWindow, session } from "electron";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { trackRenderer } from "./ipc.js";
 
 let win: BrowserWindow | null = null;
@@ -11,7 +14,7 @@ export function openSettings() {
     width: 920, height: 720, minWidth: 760, minHeight: 560,
     titleBarStyle: "hiddenInset", show: false, backgroundColor: "#0e1014",
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,   // renderer can't touch node
       nodeIntegration: false,
       sandbox: true,            // OS-level sandbox for the renderer
