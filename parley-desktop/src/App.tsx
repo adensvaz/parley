@@ -125,6 +125,7 @@ function Call({ toast }: { toast: (m: string) => void }) {
   const end = () => { stopCapture(); s.go("post"); };
   const mm = String(Math.floor(secs / 60)).padStart(2, "0"), ss = String(secs % 60).padStart(2, "0");
   const you = Math.round(s.talkRatio * 100), warn = you > 68;
+  const last = s.transcript[s.transcript.length - 1];
   const sendPractice = () => { if (!practice.trim()) return; sendTranscript("prospect", practice.trim()); setPractice(""); };
 
   return (
@@ -153,7 +154,11 @@ function Call({ toast }: { toast: (m: string) => void }) {
         </div>
 
         <div className="rail">
-          <div className="railhead"><span className="logo">🎯 <b>Parley</b></span><span className="pill" style={{ marginLeft: "auto", padding: "3px 9px" }}>● {status}</span></div>
+          <div className="railhead">
+            <span className="logo">🎯 <b>Parley</b></span>
+            <span className="pill" style={{ marginLeft: "auto", padding: "3px 9px" }}>● {status}</span>
+            <span className="timer" style={{ marginLeft: 0, fontSize: 13 }}>{mm}:{ss}</span>
+          </div>
           <div className="coach">
             <div className="meter"><i style={{ width: `${you}%`, background: warn ? "var(--warn)" : "var(--accent)" }} /><i style={{ width: `${100 - you}%`, background: "#39445c" }} /></div>
             <small>You {you}% · Them {100 - you}% · {warn ? "slow down — ask a question" : "listening well"}</small>
@@ -166,6 +171,17 @@ function Call({ toast }: { toast: (m: string) => void }) {
               const ic = { objection: "🛡️", script: "🧭", coach: "🎯", coach2: "🎯", answer: "💬", signal: "📈" }[c.kind] ?? "💬";
               return <div key={c.id} className={`card ${c.kind}`}><div className="h"><span>{ic} <b>{c.title}</b></span>{c.urgency === "now" && <span className="badge">NOW</span>}</div><p>{c.body}</p></div>;
             })}
+          </div>
+
+          {/* last thing heard — keeps context without a whole transcript pane */}
+          {last && <div className="lastline"><b>{last.speaker === "rep" ? "You" : (s.lead?.name ?? "Prospect")}:</b> {last.text}</div>}
+
+          {/* compose + end: lives IN the rail so it's always reachable in the narrow overlay */}
+          <div className="compose">
+            <input value={practice} onChange={(e) => setPractice(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendPractice()}
+              placeholder="Type what they said…" aria-label="Prospect line" />
+            <button className="btn sm" onClick={sendPractice}>Send</button>
+            <button className="end" onClick={end}>End</button>
           </div>
         </div>
       </div>
